@@ -64,6 +64,10 @@ class FixtureTests(unittest.TestCase):
         self.assertIn("noctalia.notify", parity)
         self.assertIn("ctl access", parity)
         self.assertIn("display release", parity)
+        self.assertIn("punktfunk-logo.svg", parity)
+        self.assertIn("title+body only", parity)
+        self.assertIn("no actions", parity.lower())
+        self.assertFalse(any((PLUGIN).rglob("*.svg")), "parity PR must not vendor a competing logo SVG")
 
     def test_luau_entrypoints_exist_and_are_not_qml(self):
         for name, functions in LUAU_FILES.items():

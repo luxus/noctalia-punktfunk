@@ -12,14 +12,16 @@ Not affiliated with Noctalia beyond using its plugin API. Darwin / macOS are out
 
 ## What it shows
 
-- **Bar widget** — brand mark (plugin logo when present, otherwise a cast glyph), primary pip while streaming, dim when the host is stopped, error-colored with a pending-count badge when a device is waiting or the host certificate does not match. Click opens the panel (Pair tab if something is waiting). Right-click stops a live session, or opens the web console when nothing is streaming.
+- **Bar widget** — `punktfunk-logo.svg` when that file exists (vendored by the logo PR; not added here), otherwise a cast glyph. Semantic fill/border, a primary pip while streaming, and a pending-count badge wrap the mark rather than replacing it. Click opens the panel (Pair tab if something is waiting). Right-click stops a live session, or opens the web console when nothing is streaming.
 - **Panel** — hero with host start/stop (busy until the snapshot settles) and the live codec while streaming, then five tabs:
   - *Overview* — facts, competing-host banner from `summary.conflicts`, stop / end-game, bitrate / frames / encode pillars, and a target sparkline.
   - *Pair* — incoming request with Accept / Reject by pending id, the pairing PIN to verify, Moonlight PIN field, and the pairing-window toggle.
   - *Devices* — both planes; access `full` / `controller` / `view` (`ctl access`); rename (`ctl rename`); Unpair asks Confirm / Cancel (`y` / `c` while focused).
   - *Display* — Dedicated / This screen cards, policy, presets, and **Release kept displays** (`ctl display release`; never an actively streaming head).
   - *Stats* — the same pillars, encoder detail, and capture charts.
-- **Service** — one long-lived `punktfunk-host ctl watch` stream that drives the widget and panel. `pairing.pending` raises a Noctalia notification with the claimed name and fingerprint tail; `stream.started` / `stream.stopped` raise quiet toasts. `noctalia.notify` is title+body only — it cannot attach Approve / Deny actions — so Accept / Reject stay on the Pair tab, keyed by pending id. Click the bar (or the notification, then the bar) to open that tab.
+- **Service** — one long-lived `punktfunk-host ctl watch` stream that drives the widget and panel. `pairing.pending` raises a Noctalia notification with the claimed name and fingerprint tail; `stream.started` / `stream.stopped` raise quiet toasts.
+
+`noctalia.notify(title, body)` and `noctalia.notifyError(title, body)` take two strings and nothing else: **no actions, no click handler, no urgency flag** (plugin_api 24). Approve / Deny therefore stay on the Pair tab, keyed by pending id. Click the bar widget to open that tab.
 - **Shortcut** — control-center tile that opens the same panel.
 
 Keyboard while the panel is focused: `1`–`5` and `h` / `l` switch tabs. A waiting pair opens the Pair tab. Escape closes (host behavior).

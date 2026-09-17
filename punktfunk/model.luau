@@ -20,16 +20,13 @@ model.TAB_NAMES = { "Overview", "Pair", "Devices", "Display", "Stats" }
 model.TAB_IDS = { "overview", "pair", "devices", "display", "stats" }
 model.ACCESS_LEVELS = { "full", "controller", "view" }
 model.ACCESS_LABELS = { full = "Full", controller = "Controller", view = "View" }
--- Plugin-relative marks the logo PR may add. Widget uses the first file that exists.
+-- TODO(bc-e0bdb3f3): that agent vendors `punktfunk-logo.svg` for the bar/panel
+-- brand mark. Do not add a competing asset. Prefer that file when present;
+-- overlay pending badge + state colours around it. Glyph is fallback only.
+model.LOGO_PATH = "punktfunk-logo.svg"
 model.LOGO_PATHS = {
-	"logo.svg",
-	"logo.png",
-	"assets/logo.svg",
-	"assets/logo.png",
-	"assets/punktfunk.svg",
-	"assets/punktfunk.png",
-	"punktfunk.svg",
-	"punktfunk.png",
+	"punktfunk-logo.svg",
+	"assets/punktfunk-logo.svg",
 }
 
 local function toNumber(value, fallback)
@@ -632,6 +629,22 @@ function model.widgetColor(snap)
 		return "on_surface_variant"
 	end
 	return "on_surface"
+end
+
+-- Fill/border drawn *around* the logo. Never tints or replaces the SVG.
+function model.widgetFill(snap)
+	local s = snap or {}
+	if s.pinMismatch or model.needsYou(s) then
+		return "error/0.22"
+	end
+	if s.state == "streaming" then
+		return "primary/0.22"
+	end
+	return nil
+end
+
+function model.widgetBorder(snap)
+	return model.widgetColor(snap)
 end
 
 function model.widgetLogoPath(fileExists)

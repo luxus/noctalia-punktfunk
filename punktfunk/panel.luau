@@ -3,6 +3,10 @@
 -- column/row/scroll only. ui.box is a leaf swatch, not a flex parent.
 -- Do not error() at load: a thrown panel entry is an empty surface.
 -- All host calls go through the [[service]] via noctalia.state request.
+--
+-- TODO(bc-e0bdb3f3): that agent vendors `punktfunk-logo.svg` as the panel
+-- brand mark. Do not add a competing hero image here. Bar state colours and
+-- the pending badge live in widget.luau around that same path.
 
 local model
 local requireOk, requireResult = pcall(require, "./model.luau")

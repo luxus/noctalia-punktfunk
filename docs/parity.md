@@ -25,9 +25,9 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 
 | Capability | Omarchy | Noctalia | Status | Notes |
 | --- | --- | --- | --- | --- |
-| Bar: stopped / idle / streaming | Two-ring `LensMark`; filled while streaming, dim when stopped | Brand mark (logo file if present, else `cast` / `cast-off`); streaming = `primary` + filled pip; idle = `on_surface`; stopped = `on_surface_variant` | full | Same three states. Logo PR owns the brand mark; this plugin keeps semantic colours + the streaming pip. Not a canvas LensMark. |
-| Bar: device waiting | Urgent colour **and** corner badge (`needsYou` `Rectangle`) | Error colour **and** pending-count badge (`model.widgetBadge`); tooltip `widget.pending` | full | `needsYou` = `pending > 0` or `pinPending`. Click opens the Pair tab (`focusPair`). |
-| Bar: certificate pin mismatch (ctl exit 4) | Warning glyph, urgent colour, distinct tooltip | `alert-triangle` (even if a logo is present), `error` colour, `widget.pin_mismatch` | full | Same distinction from “host down”. |
+| Bar: stopped / idle / streaming | Two-ring `LensMark`; filled while streaming, dim when stopped | Brand mark is `punktfunk-logo.svg` when that file exists (vendored by logo agent `bc-e0bdb3f3`; this plugin does **not** add the asset). Fallback glyph if missing. Streaming = `primary` fill/border + pip around the mark | full | Overlay, not a replacement. `TODO(bc-e0bdb3f3)` in `widget.luau` / `model.LOGO_PATH`. |
+| Bar: device waiting | Urgent colour **and** corner badge | Error fill/border **around the logo** plus pending-count badge; tooltip `widget.pending` | full | Click opens the Pair tab (`focusPair`). Logo stays the mark. |
+| Bar: certificate pin mismatch (ctl exit 4) | Warning glyph, urgent colour | Error chrome around the logo plus a small `alert-triangle` overlay (logo is not swapped out). Tooltip `widget.pin_mismatch` | full | Same distinction from “host down”. |
 | Click opens panel | left-click → `root.toggle()` | `widget.onClick` → `noctalia.togglePanel("luxus/punktfunk:panel")`; waiting pair also sets `focusPair` | full | |
 | Right-click: stop session or open console | Streaming → `ctl stop-session`; else `openConsole()` | Same split (`widget.onRightClick`) | full | |
 | Bar tooltip / label | Implicit via mark + panel | Tooltips in `translations/en.json`; optional `show_label` | noctalia-only | |
@@ -127,7 +127,7 @@ Keep using `punktfunk-host ctl` only.
 | 3 | Surface `summary.conflicts[]` | **Shipped.** Panel banner. |
 | 4 | `ctl display release` for kept heads | **Shipped.** Display tab; copy states it never releases an actively streaming head. |
 | 5 | Stream start/stop toasts | **Shipped.** From `stream.*` watch kinds. |
-| — | Bar pending badge / clearer streaming state | **Shipped.** Badge + streaming pip; logo-aware mark (does not steal the logo PR’s brand file). |
+| — | Bar pending badge / clearer streaming state | **Shipped.** Badge + streaming pip + fill/border **around** `punktfunk-logo.svg`. Logo agent owns the SVG (`TODO(bc-e0bdb3f3)`); this PR does not vendor a competing mark. |
 | — | Hero live codec + host-toggle busy/settle | **Shipped.** |
 
 ### Deferred (not trivial / out of scope)
@@ -136,3 +136,22 @@ Keep using `punktfunk-host ctl` only.
 - Idle-guard / `omarchy-toggle-idle` — not `ctl`; needs a Noctalia idle inhibitor.
 - `unpair --all` — mass-destructive; leave unused.
 - `watch --since`, `pair arm --fingerprint/--preset`, `approve --name/--preset`, `game.*` subscription, LensMark canvas, phrase fade.
+
+---
+
+## D. `noctalia.notify` action capabilities (plugin_api 24)
+
+Verified against [Runtime API](https://docs.noctalia.dev/noctalia/plugins/development/runtime-api/) and `noctalia-dev/official-plugins` `noctalia.d.luau`:
+
+| Call | Signature | Actions | Click / `onActivate` | Urgency / icon |
+| --- | --- | --- | --- | --- |
+| `noctalia.notify` | `(title: string, body: string?) -> ()` | **none** | **none** | none |
+| `noctalia.notifyError` | `(title: string, body: string?) -> ()` | **none** | **none** | error styling only |
+
+There is no third argument, no `actions` / `--exec` table, and no notification-click callback. Omarchy’s pairing toast with `Approve:punktfunk-host ctl approve $id` cannot be reproduced through this API.
+
+**What this plugin does instead**
+
+- Pairing: `noctalia.notify("Punktfunk pairing request", "<name> wants to pair · …tail — open the Pair tab…")`, keyed by pending id. Bar click sets `focusPair` and opens the Pair tab; Accept/Reject there call `ctl approve\|deny <id>`.
+- Stream: `noctalia.notify` on `stream.started` / `stream.stopped` (title + body only).
+- The plugin does **not** shell out to `notify-send` or `omarchy-notification-send` to fake actions (would bypass the request bus and duplicate toasts).

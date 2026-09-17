@@ -1,8 +1,14 @@
 --!nonstrict
--- Bar widget: brand mark (logo if present, else a cast glyph), semantic colour,
--- a filled pip while streaming, and a pending-count badge when a device waits.
--- Click opens the panel (Pair tab when something is waiting). Right-click stops
--- a live session, or opens the web console when nothing is streaming.
+-- Bar widget: Punktfunk brand mark with state chrome around it.
+--
+-- TODO(bc-e0bdb3f3): that agent vendors `punktfunk-logo.svg` for the bar/panel
+-- mark. Do not add, replace, or fight that asset. When the file is present
+-- (plugin-relative `punktfunk-logo.svg` or `assets/punktfunk-logo.svg`), use it
+-- as the mark and overlay pending badge + semantic fill/border. Until their
+-- PR lands, fall back to the cast glyph with the same overlay so the two
+-- compose.
+-- Click opens the panel (Pair tab when something is waiting). Right-click
+-- stops a live session, or opens the web console when nothing is streaming.
 
 local model
 local requireOk, requireResult = pcall(require, "./model.luau")
@@ -28,9 +34,19 @@ else
 			end
 			return "on_surface"
 		end,
+		widgetFill = function()
+			return nil
+		end,
+		widgetBorder = function(snap)
+			if type(snap) == "table" and snap.state == "streaming" then
+				return "primary"
+			end
+			return "on_surface"
+		end,
 		widgetLogoPath = function()
 			return nil
 		end,
+		LOGO_PATH = "punktfunk-logo.svg",
 		widgetBadge = function(snap)
 			if type(snap) == "table" and (tonumber(snap.pending) or 0) > 0 then
 				return tostring(tonumber(snap.pending) or 0)
@@ -85,11 +101,9 @@ local function fileExists(path)
 	return noctalia.fileExists(path) == true
 end
 
+-- Logo stays the brand mark. Pin-mismatch / pending / streaming are overlays
+-- around it, never a replacement glyph (glyph is only the missing-file fallback).
 local function brandMark(color)
-	-- Pin mismatch always wins: that is a trust failure, not a brand mark.
-	if type(snap) == "table" and snap.pinMismatch then
-		return ui.glyph({ name = "alert-triangle", size = 16, color = color })
-	end
 	local logo = model.widgetLogoPath and model.widgetLogoPath(fileExists) or nil
 	if logo then
 		return ui.image({ path = logo, width = 16, height = 16, fit = "contain" })
@@ -97,10 +111,11 @@ local function brandMark(color)
 	return ui.glyph({ name = model.widgetGlyph(snap), size = 16, color = color })
 end
 
-local function render()
-	local color = model.widgetColor(snap)
-	local showLabel = noctalia.getConfig("show_label") == true
+local function overlayChildren(color)
 	local children = { brandMark(color) }
+	if type(snap) == "table" and snap.pinMismatch then
+		table.insert(children, ui.glyph({ name = "alert-triangle", size = 10, color = "error" }))
+	end
 	if model.widgetShowPip and model.widgetShowPip(snap) then
 		table.insert(children, ui.box({
 			width = 6,
@@ -123,21 +138,38 @@ local function render()
 			ui.label({ text = badge, fontSize = 10, fontWeight = "bold" }),
 		}))
 	end
+	return children
+end
+
+local function render()
+	local color = model.widgetColor(snap)
+	local showLabel = noctalia.getConfig("show_label") == true
+	local chrome = overlayChildren(color)
 	if showLabel then
-		table.insert(children, ui.label({
+		table.insert(chrome, ui.label({
 			text = noctalia.tr("widget.label"),
 			color = color,
 		}))
 	end
-	local container = (barWidget.isVertical and barWidget.isVertical()) and ui.column or ui.row
-	local layout = { gap = 4, align = "center" }
-	if barWidget.isVertical and barWidget.isVertical() then
+	local isVertical = barWidget.isVertical and barWidget.isVertical()
+	local container = isVertical and ui.column or ui.row
+	local layout = {
+		gap = 4,
+		align = "center",
+		fill = model.widgetFill and model.widgetFill(snap) or nil,
+		border = model.widgetBorder and model.widgetBorder(snap) or color,
+		borderWidth = 1,
+		radius = 8,
+	}
+	if isVertical then
 		layout.paddingV = 4
+		layout.paddingH = 3
 	else
-		layout.paddingH = 4
+		layout.paddingH = 5
+		layout.paddingV = 2
 	end
 	if type(barWidget.render) == "function" and type(ui) == "table" then
-		barWidget.render(container(layout, children))
+		barWidget.render(container(layout, chrome))
 		barWidget.setTooltip(tooltip())
 		return
 	end
