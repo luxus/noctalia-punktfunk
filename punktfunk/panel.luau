@@ -38,6 +38,9 @@ if model == nil then
 		heroMeta = function()
 			return "Host is stopped"
 		end,
+		heroDetail = function()
+			return ""
+		end,
 		heroPhrase = function()
 			return ""
 		end,
@@ -115,6 +118,25 @@ if model == nil then
 		hostEnabled = function(s)
 			return type(s) == "table" and s.state ~= "stopped"
 		end,
+		conflictBanner = function()
+			return nil
+		end,
+		deviceCanAccess = function()
+			return false
+		end,
+		isAccessLevel = function()
+			return false
+		end,
+		accessLabel = function(level)
+			return tostring(level or "")
+		end,
+		keptDisplayCount = function()
+			return 0
+		end,
+		releaseCopy = function()
+			return "Never touches a display that is actively streaming."
+		end,
+		ACCESS_LEVELS = { "full", "controller", "view" },
 		pinArgs = function()
 			return {}
 		end,
@@ -127,6 +149,7 @@ local phraseIndex = 0
 local lastPhraseAt = 0
 local unpairFingerprint = ""
 local pinDraft = ""
+local renameDraft = {}
 local snap = noctalia.state.get("snap") or {
 	state = "stopped",
 	pending = 0,
@@ -505,17 +528,63 @@ local function devicesTab()
 		if device.access_level then
 			access = " · " .. tostring(device.access_level)
 		end
-		table.insert(children, ui.row({ key = "device-" .. fingerprint .. "-" .. tostring(i), gap = 8, align = "center" }, {
-			ui.column({ flexGrow = 1, gap = 2 }, {
-				ui.label({ text = model.deviceTitle(device), fontWeight = "medium" }),
-				ui.label({
-					text = model.tail(fingerprint) .. " · " .. model.devicePlane(device) .. access,
-					fontSize = 12,
-					color = "on_surface_variant",
+		local rowChildren = {
+			ui.row({ gap = 8, align = "center" }, {
+				ui.column({ flexGrow = 1, gap = 2 }, {
+					ui.label({ text = model.deviceTitle(device), fontWeight = "medium" }),
+					ui.label({
+						text = model.tail(fingerprint) .. " · " .. model.devicePlane(device) .. access,
+						fontSize = 12,
+						color = "on_surface_variant",
+					}),
 				}),
+				buttons,
 			}),
-			buttons,
-		}))
+		}
+		if model.deviceCanAccess(device) and fingerprint ~= "" and not confirming then
+			local chips = {}
+			for _, level in ipairs(model.ACCESS_LEVELS or { "full", "controller", "view" }) do
+				local selected = tostring(device.access_level or "") == level
+				table.insert(chips, ui.button({
+					key = "access-" .. fingerprint .. "-" .. level,
+					text = model.accessLabel(level),
+					variant = selected and "primary" or "ghost",
+					controlSize = "sm",
+					onClick = function()
+						device.access_level = level
+						request("access", { fingerprint = fingerprint, level = level })
+						paint()
+					end,
+				}))
+			end
+			table.insert(rowChildren, ui.row({ gap = 6, align = "center", key = "access-row-" .. fingerprint }, chips))
+			table.insert(rowChildren, ui.row({ gap = 6, align = "center", key = "rename-row-" .. fingerprint }, {
+				ui.input({
+					key = "rename-" .. fingerprint,
+					placeholder = "Rename · " .. model.deviceTitle(device),
+					flexGrow = 1,
+					controlSize = "sm",
+					onChange = function(value)
+						renameDraft[fingerprint] = value
+					end,
+					onSubmit = function(value)
+						request("rename", { fingerprint = fingerprint, name = value })
+					end,
+				}),
+				ui.button({
+					text = "Save",
+					variant = "secondary",
+					controlSize = "sm",
+					onClick = function()
+						request("rename", { fingerprint = fingerprint, name = renameDraft[fingerprint] or "" })
+					end,
+				}),
+			}))
+		end
+		table.insert(children, ui.column({
+			key = "device-" .. fingerprint .. "-" .. tostring(i),
+			gap = 6,
+		}, rowChildren))
 	end
 	return ui.column({ gap = 10, key = "devices" }, children)
 end
@@ -593,6 +662,27 @@ local function devicesDisplayTab()
 			color = "on_surface_variant",
 		}))
 	end
+	local kept = model.keptDisplayCount and model.keptDisplayCount(snap.summary) or 0
+	if kept > 0 then
+		table.insert(children, ui.label({
+			text = tostring(kept) .. " kept display(s) with no live session.",
+			fontSize = 12,
+			color = "on_surface_variant",
+		}))
+	end
+	table.insert(children, ui.button({
+		key = "display-release",
+		text = "Release kept displays",
+		variant = "secondary",
+		onClick = function()
+			request("display-release")
+		end,
+	}))
+	table.insert(children, ui.label({
+		text = model.releaseCopy and model.releaseCopy() or "Never touches a display that is actively streaming.",
+		fontSize = 12,
+		color = "on_surface_variant",
+	}))
 	return ui.column({ gap = 12, key = "display" }, children)
 end
 
@@ -691,22 +781,32 @@ function tree()
 	else
 		body = overviewTab()
 	end
-	local headerChildren = {
-		ui.column({ flexGrow = 1, gap = 2 }, {
-			ui.label({
-				text = model.heroTitle(snap.state, type(snap.summary) == "table" and snap.summary.client_name or nil),
-				fontSize = 16,
-				fontWeight = "bold",
-				color = "on_surface",
-			}),
-			ui.label({
-				text = model.heroMeta(snap.state, model.heroPhrase(phraseIndex)),
-				fontSize = 12,
-				color = "on_surface_variant",
-			}),
+	local headerMeta = {
+		ui.label({
+			text = model.heroTitle(snap.state, type(snap.summary) == "table" and snap.summary.client_name or nil),
+			fontSize = 16,
+			fontWeight = "bold",
+			color = "on_surface",
 		}),
+		ui.label({
+			text = model.heroMeta(snap.state, model.heroPhrase(phraseIndex), snap),
+			fontSize = 12,
+			color = "on_surface_variant",
+		}),
+	}
+	local codec = model.heroDetail and model.heroDetail(snap.state, snap.stream) or ""
+	if codec ~= "" then
+		table.insert(headerMeta, ui.label({
+			text = codec,
+			fontSize = 12,
+			color = "primary",
+		}))
+	end
+	local headerChildren = {
+		ui.column({ flexGrow = 1, gap = 2 }, headerMeta),
 		ui.toggle({
 			checked = model.hostEnabled(snap) == true,
+			enabled = snap.hostBusy ~= true,
 			onChange = function(value)
 				if value == "true" then
 					request("host-start")
@@ -727,6 +827,14 @@ function tree()
 			fontSize = 12,
 		}))
 	end
+	local conflict = model.conflictBanner and model.conflictBanner(snap.summary) or nil
+	if conflict then
+		table.insert(stack, ui.label({
+			text = conflict,
+			color = "error",
+			fontSize = 12,
+		}))
+	end
 	if snap.lastError and snap.lastError ~= "" and not snap.pinMismatch then
 		table.insert(stack, ui.label({ text = snap.lastError, color = "error", fontSize = 12 }))
 	end
@@ -743,6 +851,17 @@ noctalia.state.watch("snap", function(value)
 			currentTab = model.tabIndex("pair")
 			noctalia.state.set("panelTab", "pair")
 		end
+		paint()
+	end
+end)
+
+noctalia.state.watch("focusPair", function(value)
+	if type(value) ~= "table" then
+		return
+	end
+	currentTab = model.tabIndex("pair")
+	noctalia.state.set("panelTab", "pair")
+	if open then
 		paint()
 	end
 end)
