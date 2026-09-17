@@ -230,26 +230,5 @@ local function sparkBlock(label, unit, digits, pts)
 	local last = model.seriesLast(pts)
 	local lastText = "—"
 	if last ~= nil then
-		lastText = string.format("%s%s", "%.", tostring(digits or 1))
+		lastText = string.format("%s" .. tostring(digits or 1) .. "f %s", last, unit or "")
 	end
-	local values = model.graphValues(pts)
-	local children = {
-		ui.row({ align = "center", key = "spark-h-" .. label }, {
-			ui.label({ text = label, fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
-			ui.label({ text = lastText, fontSize = 12 }),
-		}),
-	}
-	if #values >= 2 then
-		table.insert(children, ui.graph({
-			values = values,
-			width = 480,
-			height = 36,
-			color = "primary",
-			lineWidth = 1.5,
-			fillOpacity = 0.16,
-		}))
-	else
-		table.insert(children, ui.label({ text = "collecting…", fontSize = 12, color = "on_surface_variant" }))
-	end
-	return ui.column({ gap = 4, key = "spark-" .. label }, children)
-end
