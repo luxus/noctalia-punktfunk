@@ -230,7 +230,7 @@ local function sparkBlock(label, unit, digits, pts)
 	local last = model.seriesLast(pts)
 	local lastText = "—"
 	if last ~= nil then
-		lastText = string.format("%." .. tostring(digits or 1) .. "f %s", last, unit or "")
+		lastText = string.format("%s%s", "%.", tostring(digits or 1))
 	end
 	local values = model.graphValues(pts)
 	local children = {
