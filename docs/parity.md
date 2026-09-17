@@ -25,7 +25,7 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 
 | Capability | Omarchy | Noctalia | Status | Notes |
 | --- | --- | --- | --- | --- |
-| Bar: stopped / idle / streaming | Two-ring `LensMark`; filled while streaming, dim when stopped | Brand mark is `punktfunk-logo.svg` when that file exists (vendored by logo agent `bc-e0bdb3f3`; this plugin does **not** add the asset). Fallback glyph if missing. Streaming = `primary` fill/border + pip around the mark | full | Overlay, not a replacement. `TODO(bc-e0bdb3f3)` in `widget.luau` / `model.LOGO_PATH`. |
+| Bar: stopped / idle / streaming | Two-ring `LensMark`; filled while streaming, dim when stopped | Brand mark is vendored `punktfunk-logo.svg` (also `assets/punktfunk-logo.svg`). Fallback glyph if missing. Streaming = `primary` fill/border + pip around the mark | full | Overlay, not a replacement. `model.widgetLogoPath` / `model.LOGO_PATH`. `TODO(bc-e0bdb3f3)` in `widget.luau`. |
 | Bar: device waiting | Urgent colour **and** corner badge | Error fill/border **around the logo** plus pending-count badge; tooltip `widget.pending` | full | Click opens the Pair tab (`focusPair`). Logo stays the mark. |
 | Bar: certificate pin mismatch (ctl exit 4) | Warning glyph, urgent colour | Error chrome around the logo plus a small `alert-triangle` overlay (logo is not swapped out). Tooltip `widget.pin_mismatch` | full | Same distinction from “host down”. |
 | Click opens panel | left-click → `root.toggle()` | `widget.onClick` → `noctalia.togglePanel("luxus/punktfunk:panel")`; waiting pair also sets `focusPair` | full | |
@@ -127,7 +127,7 @@ Keep using `punktfunk-host ctl` only.
 | 3 | Surface `summary.conflicts[]` | **Shipped.** Panel banner. |
 | 4 | `ctl display release` for kept heads | **Shipped.** Display tab; copy states it never releases an actively streaming head. |
 | 5 | Stream start/stop toasts | **Shipped.** From `stream.*` watch kinds. |
-| — | Bar pending badge / clearer streaming state | **Shipped.** Badge + streaming pip + fill/border **around** `punktfunk-logo.svg`. Logo agent owns the SVG (`TODO(bc-e0bdb3f3)`); this PR does not vendor a competing mark. |
+| — | Bar pending badge / clearer streaming state | **Shipped.** Badge + streaming pip + fill/border **around** vendored `punktfunk-logo.svg`. |
 | — | Hero live codec + host-toggle busy/settle | **Shipped.** |
 
 ### Deferred (not trivial / out of scope)

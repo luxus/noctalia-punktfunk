@@ -37,6 +37,16 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual("service.luau", plugin["service"][0]["entry"])
         self.assertEqual("shortcut.luau", plugin["shortcut"][0]["entry"])
         self.assertEqual("punktfunk-host", plugin["dependencies"][0])
+        self.assertEqual("cast", plugin["icon"])
+        self.assertTrue((PLUGIN / "punktfunk-logo.svg").is_file())
+        self.assertTrue((PLUGIN / "assets" / "punktfunk-logo.svg").is_file())
+        logo = (PLUGIN / "assets" / "punktfunk-logo.svg").read_text()
+        root_logo = (PLUGIN / "punktfunk-logo.svg").read_text()
+        self.assertEqual(logo, root_logo)
+        self.assertIn("pf-wm", logo)
+        self.assertIn("pf-back", logo)
+        self.assertIn("pf-deep", logo)
+        self.assertIn("viewBox=\"0 0 579 298\"", logo)
 
     def test_translations_cover_plugin_settings(self):
         translations = json.loads((PLUGIN / "translations" / "en.json").read_text())
@@ -59,6 +69,7 @@ class FixtureTests(unittest.TestCase):
         self.assertIn("standalone", readme.lower())
         self.assertIn("plugin_api` 24", readme)
         self.assertIn("noctalia.notify", readme)
+        self.assertIn("punktfunk-logo.svg", readme)
         self.assertTrue((ROOT / "docs" / "parity.md").is_file())
         parity = (ROOT / "docs" / "parity.md").read_text()
         self.assertIn("noctalia.notify", parity)
@@ -67,7 +78,6 @@ class FixtureTests(unittest.TestCase):
         self.assertIn("punktfunk-logo.svg", parity)
         self.assertIn("title+body only", parity)
         self.assertIn("no actions", parity.lower())
-        self.assertFalse(any((PLUGIN).rglob("*.svg")), "parity PR must not vendor a competing logo SVG")
 
     def test_luau_entrypoints_exist_and_are_not_qml(self):
         for name, functions in LUAU_FILES.items():
@@ -81,6 +91,22 @@ class FixtureTests(unittest.TestCase):
                     self.assertIn("function tree()", text, name)
                 else:
                     self.assertIn("function %s(" % function, text, "%s %s" % (name, function))
+
+    def test_bar_and_panel_use_punktfunk_logo(self):
+        widget = (PLUGIN / "widget.luau").read_text()
+        panel = (PLUGIN / "panel.luau").read_text()
+        model = (PLUGIN / "model.luau").read_text()
+        self.assertIn("punktfunk-logo.svg", widget)
+        self.assertIn("ui.image", widget)
+        self.assertIn("barWidget.render", widget)
+        self.assertNotIn("barWidget.setImage", widget)
+        self.assertIn("assets/punktfunk-logo.svg", panel)
+        self.assertIn("ui.image", panel)
+        self.assertIn('LOGO_PATH = "punktfunk-logo.svg"', model)
+        self.assertIn("assets/punktfunk-logo.svg", model)
+        self.assertNotIn("punktfunk-mark.svg", widget)
+        self.assertNotIn("widgetChrome", widget)
+
 
     def test_luau_syntax_when_compiler_is_available(self):
         compiler = shutil.which("luau-compile")

@@ -12,8 +12,8 @@ Not affiliated with Noctalia beyond using its plugin API. Darwin / macOS are out
 
 ## What it shows
 
-- **Bar widget** — `punktfunk-logo.svg` when that file exists (vendored by the logo PR; not added here), otherwise a cast glyph. Semantic fill/border, a primary pip while streaming, and a pending-count badge wrap the mark rather than replacing it. Click opens the panel (Pair tab if something is waiting). Right-click stops a live session, or opens the web console when nothing is streaming.
-- **Panel** — hero with host start/stop (busy until the snapshot settles) and the live codec while streaming, then five tabs:
+- **Bar widget** — official `punktfunk-logo.svg` as the mark (also at `assets/punktfunk-logo.svg`), otherwise a cast glyph. Semantic fill/border, a primary pip while streaming, and a pending-count badge wrap the mark rather than replacing it. Click opens the panel (Pair tab if something is waiting). Right-click stops a live session, or opens the web console when nothing is streaming.
+- **Panel** — hero with the same logo, host start/stop (busy until the snapshot settles), and the live codec while streaming, then five tabs:
   - *Overview* — facts, competing-host banner from `summary.conflicts`, stop / end-game, bitrate / frames / encode pillars, and a target sparkline.
   - *Pair* — incoming request with Accept / Reject by pending id, the pairing PIN to verify, Moonlight PIN field, and the pairing-window toggle.
   - *Devices* — both planes; access `full` / `controller` / `view` (`ctl access`); rename (`ctl rename`); Unpair asks Confirm / Cancel (`y` / `c` while focused).
@@ -43,6 +43,8 @@ noctalia msg plugins enable luxus/punktfunk
 ```
 
 Add the **Punktfunk** bar widget in Noctalia settings. Click it (or the control-center tile) to open the panel.
+
+The bar and panel hero load `punktfunk-logo.svg` (also at `assets/punktfunk-logo.svg`). Catalog listings and the control-center tile still use the Material `cast` glyph because `plugin.toml` `icon` and `shortcut.setIcon` only accept a Tabler/Material name. Overlay chrome (streaming fill, pending badge) wraps that mark. Confirm the mark on lea: this repo’s selftest does not drive a live Noctalia session.
 
 ## Requirements
 

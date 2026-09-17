@@ -4,6 +4,8 @@ version = "0.2.0"
 plugin_api = 24
 author = "luxus"
 license = "MIT OR Apache-2.0"
+# Catalog listings only accept a Tabler/Material glyph name, not a plugin file.
+# The bar widget and panel hero load punktfunk-logo.svg / assets/punktfunk-logo.svg.
 icon = "cast"
 description = "Watch the Punktfunk host, pair a device, and control the live session from the Noctalia bar."
 tags = ["bar", "panel", "service", "streaming", "utility"]
