@@ -1,0 +1,12 @@
+[[plugin]]
+id = "luxus/punktfunk"
+name = "Punktfunk"
+version = "0.1.0"
+author = "luxus"
+license = "MIT OR Apache-2.0"
+icon = "cast"
+description = "Watch the Punktfunk host, pair a device, and control the live session from the Noctalia bar."
+deprecated = false
+plugin_api = 24
+tags = ["bar", "panel", "service", "streaming", "utility"]
+dependencies = ["punktfunk-host"]

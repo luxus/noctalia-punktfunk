@@ -1,0 +1,40 @@
+id = "luxus/punktfunk"
+name = "Punktfunk"
+version = "0.1.0"
+plugin_api = 24
+author = "luxus"
+license = "MIT OR Apache-2.0"
+icon = "cast"
+description = "Watch the Punktfunk host, pair a device, and control the live session from the Noctalia bar."
+tags = ["bar", "panel", "service", "streaming", "utility"]
+dependencies = ["punktfunk-host"]
+
+[[setting]]
+key = "show_label"
+type = "bool"
+label_key = "settings.show_label.label"
+description_key = "settings.show_label.description"
+default = false
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 540
+height = 640
+placement = "floating"
+position = "center"
+open_near_click = true
+keyboard_focus = "exclusive"
+capture_keys = ["1", "2", "3", "4", "5", "h", "l", "y", "c", "x"]
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"

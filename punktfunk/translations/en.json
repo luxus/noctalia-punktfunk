@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "show_label": {
+      "label": "Show bar label",
+      "description": "Show the Punktfunk name next to the bar icon."
+    }
+  },
+  "widget": {
+    "stopped": "Punktfunk · Host is stopped",
+    "idle": "Punktfunk · Ready to stream",
+    "streaming": "Punktfunk · Streaming",
+    "pending": "Punktfunk · Device waiting",
+    "pin_mismatch": "Punktfunk · Certificate mismatch — no credential was sent",
+    "label": "Punktfunk"
+  },
+  "shortcut": {
+    "label": "Punktfunk"
+  }
+}
