@@ -230,7 +230,7 @@ local function sparkBlock(label, unit, digits, pts)
 	local last = model.seriesLast(pts)
 	local lastText = "—"
 	if last ~= nil then
-		lastText = string.format("%." .. tostring(digits or 1) .. "f %s", last, unit or "")
+		lastText = string.format("%.". .. tostring(digits or 1) .. "f %s", last, unit or "")
 	end
 	local values = model.graphValues(pts)
 	local children = {
@@ -392,7 +392,7 @@ local function pairTab()
 							uniqueid = device.uniqueid,
 							fingerprint = device.fingerprint,
 							peer_ip = device.peer_ip,
-						}),
+						})
 					end,
 				}),
 				ui.button({
