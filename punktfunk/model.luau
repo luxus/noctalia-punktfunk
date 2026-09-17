@@ -20,9 +20,8 @@ model.TAB_NAMES = { "Overview", "Pair", "Devices", "Display", "Stats" }
 model.TAB_IDS = { "overview", "pair", "devices", "display", "stats" }
 model.ACCESS_LEVELS = { "full", "controller", "view" }
 model.ACCESS_LABELS = { full = "Full", controller = "Controller", view = "View" }
--- TODO(bc-e0bdb3f3): that agent vendors `punktfunk-logo.svg` for the bar/panel
--- brand mark. Do not add a competing asset. Prefer that file when present;
--- overlay pending badge + state colours around it. Glyph is fallback only.
+-- TODO(bc-e0bdb3f3): `punktfunk-logo.svg` is vendored at both probe paths.
+-- Overlay pending badge + state colours around it. Glyph is fallback only.
 model.LOGO_PATH = "punktfunk-logo.svg"
 model.LOGO_PATHS = {
 	"punktfunk-logo.svg",

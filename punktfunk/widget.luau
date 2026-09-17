@@ -1,12 +1,10 @@
 --!nonstrict
 -- Bar widget: Punktfunk brand mark with state chrome around it.
 --
--- TODO(bc-e0bdb3f3): that agent vendors `punktfunk-logo.svg` for the bar/panel
--- mark. Do not add, replace, or fight that asset. When the file is present
--- (plugin-relative `punktfunk-logo.svg` or `assets/punktfunk-logo.svg`), use it
--- as the mark and overlay pending badge + semantic fill/border. Until their
--- PR lands, fall back to the cast glyph with the same overlay so the two
--- compose.
+-- TODO(bc-e0bdb3f3): `punktfunk-logo.svg` is vendored at plugin-relative
+-- `punktfunk-logo.svg` and `assets/punktfunk-logo.svg`. Use it as the mark
+-- and overlay pending badge + semantic fill/border. Glyph is missing-file
+-- fallback only.
 -- Click opens the panel (Pair tab when something is waiting). Right-click
 -- stops a live session, or opens the web console when nothing is streaming.
 

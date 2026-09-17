@@ -3,10 +3,9 @@
 -- column/row/scroll only. ui.box is a leaf swatch, not a flex parent.
 -- Do not error() at load: a thrown panel entry is an empty surface.
 -- All host calls go through the [[service]] via noctalia.state request.
---
--- TODO(bc-e0bdb3f3): that agent vendors `punktfunk-logo.svg` as the panel
--- brand mark. Do not add a competing hero image here. Bar state colours and
--- the pending badge live in widget.luau around that same path.
+-- Hero mark is punktfunk-logo.svg (also assets/punktfunk-logo.svg).
+-- Bar state colours and the pending badge live in widget.luau around that
+-- same path. Do not replace overlay chrome with a competing mark.
 
 local model
 local requireOk, requireResult = pcall(require, "./model.luau")
@@ -807,6 +806,12 @@ function tree()
 		}))
 	end
 	local headerChildren = {
+		ui.image({
+			path = "assets/punktfunk-logo.svg",
+			width = 28,
+			height = 28,
+			fit = "contain",
+		}),
 		ui.column({ flexGrow = 1, gap = 2 }, headerMeta),
 		ui.toggle({
 			checked = model.hostEnabled(snap) == true,
