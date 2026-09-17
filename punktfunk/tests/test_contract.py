@@ -61,6 +61,9 @@ class HostBoundaryTests(unittest.TestCase):
             '"display"',
             '"stats"',
             "capture-mode",
+            '"access"',
+            '"rename"',
+            '"release"',
         ):
             self.assertIn(token, service)
         for tab in ("overview", "pair", "devices", "display", "stats"):
@@ -73,6 +76,25 @@ class HostBoundaryTests(unittest.TestCase):
         self.assertIn("Stop the session", model)
         self.assertIn("function tree()", panel)
         self.assertNotIn('error("Punktfunk', panel)
+        self.assertIn("Release kept displays", panel)
+        self.assertIn("Rename", panel)
+        widget = (PLUGIN / "widget.luau").read_text()
+        self.assertIn("barWidget.render", widget)
+        self.assertIn("focusPair", widget)
+        self.assertIn("widgetBadge", widget)
+        self.assertIn("widgetLogoPath", widget)
+        self.assertIn("punktfunk-logo.svg", widget)
+        self.assertIn("TODO(bc-e0bdb3f3)", widget)
+        self.assertIn("widgetFill", widget)
+        self.assertIn("toastPending", service)
+        self.assertIn("eventIsStreamStart", service)
+        self.assertIn("HOST_SETTLE_MS", service)
+        self.assertIn("pairingNotifyBody", service)
+        self.assertNotIn("lastPending", service)
+        ctl_text = (PLUGIN / "ctl.luau").read_text()
+        self.assertIn("stream.started", ctl_text)
+        self.assertIn("stream.stopped", ctl_text)
+        self.assertIn("pairing.pending", ctl_text)
 
     def test_display_mode_does_not_call_omarchy_helper(self):
         for name in ("service.luau", "panel.luau", "ctl.luau"):

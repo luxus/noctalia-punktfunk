@@ -9,7 +9,9 @@ ctl.EXIT_PIN = 4
 ctl.HISTORY_MAX = 90
 ctl.WATCH_RETRY_MS = 15000
 ctl.STATS_POLL_MS = 2000
+ctl.HOST_SETTLE_MS = 1500
 ctl.WATCH_KINDS = "pairing.*,stream.*,session.*,host.*"
+ctl.ACCESS_LEVELS = { "full", "controller", "view" }
 
 function ctl.hostBin()
 	return "punktfunk-host"
@@ -41,6 +43,31 @@ end
 
 function ctl.watchNeedles()
 	return { "punktfunk-host", "watch" }
+end
+
+function ctl.isAccessLevel(level)
+	local wanted = tostring(level or "")
+	for _, name in ipairs(ctl.ACCESS_LEVELS) do
+		if name == wanted then
+			return true
+		end
+	end
+	return false
+end
+
+function ctl.accessArgv(fingerprint, level)
+	return ctl.jsonArgv({ "access", tostring(fingerprint or ""), tostring(level or "") })
+end
+
+function ctl.renameArgv(fingerprint, name)
+	return ctl.jsonArgv({ "rename", tostring(fingerprint or ""), tostring(name or "") })
+end
+
+function ctl.displayReleaseArgv(slot)
+	if slot ~= nil and tostring(slot) ~= "" then
+		return ctl.jsonArgv({ "display", "release", tostring(slot) })
+	end
+	return ctl.jsonArgv({ "display", "release" })
 end
 
 function ctl.listMonitorsArgv()
@@ -261,6 +288,18 @@ end
 
 function ctl.eventNeedsClients(kind)
 	return kind == "pairing.completed" or kind == "pairing.denied" or kind == "host.started"
+end
+
+function ctl.eventIsPairingPending(kind)
+	return kind == "pairing.pending"
+end
+
+function ctl.eventIsStreamStart(kind)
+	return kind == "stream.started"
+end
+
+function ctl.eventIsStreamStop(kind)
+	return kind == "stream.stopped"
 end
 
 return ctl

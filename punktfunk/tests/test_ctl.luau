@@ -78,6 +78,16 @@ check("no poll pair tab", ctl.shouldPollStats(true, "pair", "streaming") == fals
 check("clear history on stop", ctl.eventClearsHistory("stream.stopped") == true)
 check("host stopping", ctl.eventStopsHost("host.stopping") == true)
 check("pairing completed refreshes clients", ctl.eventNeedsClients("pairing.completed") == true)
+check("pairing pending kind", ctl.eventIsPairingPending("pairing.pending") == true)
+check("stream start kind", ctl.eventIsStreamStart("stream.started") == true)
+check("stream stop kind", ctl.eventIsStreamStop("stream.stopped") == true)
+check("access level full", ctl.isAccessLevel("full") == true)
+check("access level bad", ctl.isAccessLevel("admin") == false)
+check("access argv", join(ctl.accessArgv("abc", "view")) == "punktfunk-host ctl access abc view --json")
+check("rename argv", join(ctl.renameArgv("abc", "Couch")) == "punktfunk-host ctl rename abc Couch --json")
+check("display release argv", join(ctl.displayReleaseArgv()) == "punktfunk-host ctl display release --json")
+check("display release slot", join(ctl.displayReleaseArgv("2")) == "punktfunk-host ctl display release 2 --json")
+check("host settle ms", ctl.HOST_SETTLE_MS == 1500)
 
 local decode = function(line)
 	if line:find("resync", 1, true) then

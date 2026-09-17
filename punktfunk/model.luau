@@ -18,6 +18,16 @@ model.ACTIVE_PHRASES = {
 
 model.TAB_NAMES = { "Overview", "Pair", "Devices", "Display", "Stats" }
 model.TAB_IDS = { "overview", "pair", "devices", "display", "stats" }
+model.ACCESS_LEVELS = { "full", "controller", "view" }
+model.ACCESS_LABELS = { full = "Full", controller = "Controller", view = "View" }
+-- TODO(bc-e0bdb3f3): that agent vendors `punktfunk-logo.svg` for the bar/panel
+-- brand mark. Do not add a competing asset. Prefer that file when present;
+-- overlay pending badge + state colours around it. Glyph is fallback only.
+model.LOGO_PATH = "punktfunk-logo.svg"
+model.LOGO_PATHS = {
+	"punktfunk-logo.svg",
+	"assets/punktfunk-logo.svg",
+}
 
 local function toNumber(value, fallback)
 	local n = tonumber(value)
@@ -78,7 +88,14 @@ function model.heroTitle(state, clientName)
 	return "Punktfunk"
 end
 
-function model.heroMeta(state, phrase)
+function model.heroMeta(state, phrase, snap)
+	local s = snap or {}
+	if s.hostBusy == true then
+		if s.desiredRunning == true then
+			return "Starting the host"
+		end
+		return "Stopping the host"
+	end
 	if state == "streaming" then
 		return tostring(phrase or "")
 	end
@@ -86,6 +103,24 @@ function model.heroMeta(state, phrase)
 		return "Ready to stream"
 	end
 	return "Host is stopped"
+end
+
+function model.heroCodec(stream)
+	if type(stream) ~= "table" then
+		return ""
+	end
+	local codec = stream.codec
+	if codec == nil or tostring(codec) == "" then
+		return ""
+	end
+	return string.upper(tostring(codec))
+end
+
+function model.heroDetail(state, stream)
+	if state ~= "streaming" then
+		return ""
+	end
+	return model.heroCodec(stream)
 end
 
 function model.captureModeStatus(output)
@@ -551,6 +586,7 @@ function model.defaultSnap()
 		hostEnabled = false,
 		haveDesired = false,
 		desiredRunning = false,
+		hostBusy = false,
 	}
 end
 
@@ -593,6 +629,261 @@ function model.widgetColor(snap)
 		return "on_surface_variant"
 	end
 	return "on_surface"
+end
+
+-- Fill/border drawn *around* the logo. Never tints or replaces the SVG.
+function model.widgetFill(snap)
+	local s = snap or {}
+	if s.pinMismatch or model.needsYou(s) then
+		return "error/0.22"
+	end
+	if s.state == "streaming" then
+		return "primary/0.22"
+	end
+	return nil
+end
+
+function model.widgetBorder(snap)
+	return model.widgetColor(snap)
+end
+
+function model.widgetLogoPath(fileExists)
+	if type(fileExists) ~= "function" then
+		return nil
+	end
+	for _, rel in ipairs(model.LOGO_PATHS) do
+		if fileExists(rel) then
+			return rel
+		end
+	end
+	return nil
+end
+
+-- Count for the bar pending badge. Pin-pending Moonlight is needsYou but has
+-- no native pending id, so the badge still shows as 1.
+function model.widgetBadge(snap)
+	local s = snap or {}
+	local pending = toNumber(s.pending, 0)
+	if pending > 0 then
+		return tostring(pending)
+	end
+	if s.pinPending == true then
+		return "1"
+	end
+	return nil
+end
+
+function model.widgetShowPip(snap)
+	local s = snap or {}
+	return s.state == "streaming"
+end
+
+function model.deviceCanAccess(device)
+	return model.devicePlane(device) == "punktfunk"
+end
+
+function model.accessLabel(level)
+	local key = tostring(level or "")
+	return model.ACCESS_LABELS[key] or key
+end
+
+function model.isAccessLevel(level)
+	local wanted = tostring(level or "")
+	for _, name in ipairs(model.ACCESS_LEVELS) do
+		if name == wanted then
+			return true
+		end
+	end
+	return false
+end
+
+function model.conflictLabels(summary)
+	local list = type(summary) == "table" and summary.conflicts or nil
+	if type(list) ~= "table" then
+		return {}
+	end
+	local out = {}
+	for _, item in ipairs(list) do
+		if type(item) == "string" then
+			local trimmed = string.gsub(item, "^%s+", "")
+			trimmed = string.gsub(trimmed, "%s+$", "")
+			if trimmed ~= "" then
+				table.insert(out, trimmed)
+			end
+		elseif type(item) == "table" then
+			local label = item.label or item.name or item.app
+			if label and tostring(label) ~= "" then
+				table.insert(out, tostring(label))
+			end
+		end
+	end
+	return out
+end
+
+function model.conflictBanner(summary)
+	local labels = model.conflictLabels(summary)
+	if #labels == 0 then
+		return nil
+	end
+	if #labels == 1 then
+		return labels[1] .. " is also bound on this box"
+	end
+	return table.concat(labels, ", ") .. " are also bound on this box"
+end
+
+function model.keptDisplayCount(summary)
+	local s = summary or {}
+	return toNumber(s.kept_displays, 0)
+end
+
+function model.releaseCopy()
+	return "Release kept virtual heads so physical screens come back. Never touches a display that is actively streaming."
+end
+
+function model.pairingNotifyTitle()
+	return "Punktfunk pairing request"
+end
+
+function model.deviceNotifyName(device)
+	if type(device) ~= "table" then
+		return "a device"
+	end
+	local name = device.name or device.label or device.client_name
+	if name and tostring(name) ~= "" then
+		return tostring(name)
+	end
+	return "a device"
+end
+
+function model.pairingNotifyBody(device)
+	local name = model.deviceNotifyName(device)
+	local body = '"' .. name .. '" wants to pair'
+	local fp = type(device) == "table" and (device.fingerprint or device.device_fingerprint) or nil
+	local tail = model.tail(fp)
+	if tail ~= "—" then
+		body = body .. " · " .. tail
+	end
+	return body .. " — open the Pair tab to Accept or Reject"
+end
+
+function model.pendingId(device)
+	if type(device) ~= "table" or device.id == nil then
+		return nil
+	end
+	local id = tostring(device.id)
+	if id == "" then
+		return nil
+	end
+	return id
+end
+
+local function eventTables(ev)
+	local out = {}
+	if type(ev) == "table" then
+		table.insert(out, ev)
+		if type(ev.data) == "table" then
+			table.insert(out, ev.data)
+		end
+		if type(ev.stream) == "table" then
+			table.insert(out, ev.stream)
+		end
+		if type(ev.data) == "table" and type(ev.data.stream) == "table" then
+			table.insert(out, ev.data.stream)
+		end
+		if type(ev.device) == "table" then
+			table.insert(out, ev.device)
+		end
+		if type(ev.data) == "table" and type(ev.data.device) == "table" then
+			table.insert(out, ev.data.device)
+		end
+	end
+	return out
+end
+
+local function firstString(tables, keys)
+	for _, obj in ipairs(tables) do
+		for _, key in ipairs(keys) do
+			local value = obj[key]
+			local kind = type(value)
+			if kind == "string" then
+				local trimmed = string.gsub(value, "^%s+", "")
+				trimmed = string.gsub(trimmed, "%s+$", "")
+				if trimmed ~= "" then
+					return trimmed
+				end
+			elseif kind == "number" then
+				return tostring(value)
+			end
+		end
+	end
+	return nil
+end
+
+function model.eventDevice(ev)
+	local tables = eventTables(ev)
+	if #tables == 0 then
+		return nil
+	end
+	local device = {}
+	device.id = firstString(tables, { "id", "device_id", "pending_id" })
+	device.name = firstString(tables, { "name", "device_name", "client_name", "label" })
+	device.fingerprint = firstString(tables, { "fingerprint", "device_fingerprint" })
+	if device.id == nil and device.name == nil and device.fingerprint == nil then
+		return nil
+	end
+	return device
+end
+
+function model.streamClient(ev, snap)
+	local tables = eventTables(ev)
+	local client = firstString(tables, { "client", "client_name", "device_name", "name" })
+	if client then
+		return client
+	end
+	local summary = type(snap) == "table" and snap.summary or nil
+	if type(summary) == "table" and summary.client_name and tostring(summary.client_name) ~= "" then
+		return tostring(summary.client_name)
+	end
+	return "a client"
+end
+
+function model.streamStartedBody(ev, snap)
+	local client = model.streamClient(ev, snap)
+	local body = client .. " connected"
+	local tables = eventTables(ev)
+	local mode = firstString(tables, { "mode", "session_mode", "session" })
+	if mode then
+		body = body .. " · " .. mode
+	end
+	local hdr = false
+	for _, obj in ipairs(tables) do
+		if obj.hdr == true or obj.hdr == "true" then
+			hdr = true
+		end
+	end
+	if hdr then
+		body = body .. " HDR"
+	end
+	local app = firstString(tables, { "app", "title", "game" })
+	if app then
+		body = body .. " · " .. app
+	end
+	return body
+end
+
+function model.streamStoppedBody(ev, snap)
+	return model.streamClient(ev, snap) .. " disconnected"
+end
+
+function model.hostSettled(snap)
+	local s = snap or {}
+	if s.hostBusy ~= true then
+		return true
+	end
+	if s.desiredRunning == true then
+		return s.state == "idle" or s.state == "streaming"
+	end
+	return s.state == "stopped"
 end
 
 return model

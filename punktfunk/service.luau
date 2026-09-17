@@ -42,6 +42,37 @@ model = loadModule("./model.luau", {
 	hostEnabled = function(snap)
 		return type(snap) == "table" and snap.state ~= "stopped"
 	end,
+	pairingNotifyTitle = function()
+		return "Punktfunk pairing request"
+	end,
+	pairingNotifyBody = function(device)
+		local name = "(unnamed device)"
+		if type(device) == "table" and device.name and device.name ~= "" then
+			name = tostring(device.name)
+		end
+		return '"' .. name .. '" wants to pair — open the Pair tab to Accept or Reject'
+	end,
+	pendingId = function(device)
+		if type(device) == "table" and device.id ~= nil then
+			return tostring(device.id)
+		end
+		return nil
+	end,
+	eventDevice = function()
+		return nil
+	end,
+	streamStartedBody = function()
+		return "a client connected"
+	end,
+	streamStoppedBody = function()
+		return "a client disconnected"
+	end,
+	hostSettled = function()
+		return true
+	end,
+	isAccessLevel = function()
+		return false
+	end,
 })
 
 ctl = loadModule("./ctl.luau", {
@@ -76,6 +107,7 @@ ctl = loadModule("./ctl.luau", {
 	HISTORY_MAX = 90,
 	WATCH_RETRY_MS = 15000,
 	STATS_POLL_MS = 2000,
+	HOST_SETTLE_MS = 1500,
 	systemctlArgv = function(action)
 		return { "systemctl", "--user", action, "punktfunk-host.service" }
 	end,
@@ -123,6 +155,18 @@ ctl = loadModule("./ctl.luau", {
 	eventNeedsClients = function()
 		return false
 	end,
+	eventIsPairingPending = function()
+		return false
+	end,
+	eventIsStreamStart = function()
+		return false
+	end,
+	eventIsStreamStop = function()
+		return false
+	end,
+	isAccessLevel = function()
+		return false
+	end,
 	hostEnvHasCapturePin = function()
 		return false
 	end,
@@ -130,11 +174,19 @@ ctl = loadModule("./ctl.luau", {
 
 local snap = model.defaultSnap()
 local lastRequestT = 0
-local lastPending = 0
+local notifiedPending = {}
 local watcherStarted = false
 local retryAt = 0
 local lastStatsAt = 0
+local settleUntil = 0
 local verifyWatcher
+
+local function nowMs()
+	if type(noctalia.nowMs) == "function" then
+		return noctalia.nowMs()
+	end
+	return os.time() * 1000
+end
 
 local function configHome()
 	if type(noctalia.getenv) == "function" then
@@ -175,6 +227,47 @@ local function publish()
 	noctalia.state.set("snap", snap)
 end
 
+local function openPairTab()
+	noctalia.state.set("focusPair", {
+		t = nowMs(),
+		reason = "pairing",
+	})
+end
+
+local function pruneNotified(devices)
+	local live = {}
+	for _, device in ipairs(devices or {}) do
+		local id = model.pendingId(device)
+		if id then
+			live[id] = true
+		end
+	end
+	for id in pairs(notifiedPending) do
+		if not live[id] then
+			notifiedPending[id] = nil
+		end
+	end
+end
+
+-- noctalia.notify is title+body only (plugin_api 24). Approve/Deny stay on
+-- the Pair tab, keyed by pending id so two knocks cannot share a toast.
+local function toastPending(devices)
+	local any = false
+	for _, device in ipairs(devices or {}) do
+		local id = model.pendingId(device)
+		if id and not notifiedPending[id] then
+			notifiedPending[id] = true
+			any = true
+			if type(noctalia.notify) == "function" then
+				noctalia.notify(model.pairingNotifyTitle(), model.pairingNotifyBody(device))
+			end
+		end
+	end
+	if any then
+		openPairTab()
+	end
+end
+
 local function applyPairingWindow(data)
 	local nextState = model.pairingWindow(data)
 	snap.armed = nextState.armed
@@ -193,7 +286,10 @@ local function markStopped()
 	snap.state = "stopped"
 	snap.sessions = 0
 	snap.stream = nil
-	if not (snap.haveDesired and snap.desiredRunning) then
+	if snap.hostBusy == true and snap.desiredRunning == false then
+		snap.hostBusy = false
+		snap.haveDesired = false
+	elseif not (snap.haveDesired and snap.desiredRunning) then
 		snap.haveDesired = false
 	end
 end
@@ -258,7 +354,9 @@ local function refreshStatus()
 			return
 		end
 		data = data or {}
-		snap.haveDesired = false
+		if snap.hostBusy ~= true then
+			snap.haveDesired = false
+		end
 		snap.sessions = data.active_sessions or 0
 		snap.games = data.games or {}
 		if snap.sessions > 0 then
@@ -268,6 +366,10 @@ local function refreshStatus()
 		end
 		snap.stream = data.stream
 		snap.audioStreaming = data.audio_streaming == true
+		if model.hostSettled(snap) then
+			snap.hostBusy = false
+			snap.haveDesired = false
+		end
 		publish()
 	end)
 end
@@ -277,18 +379,12 @@ local function refreshPending()
 		if err then
 			snap.pendingDevices = {}
 			snap.pending = 0
+			pruneNotified({})
 		else
 			snap.pendingDevices = data or {}
 			snap.pending = #snap.pendingDevices
-			if snap.pending > lastPending then
-				local incoming = snap.pendingDevices[1]
-				local name = "(unnamed device)"
-				if type(incoming) == "table" and incoming.name and incoming.name ~= "" then
-					name = tostring(incoming.name)
-				end
-				noctalia.notify("Punktfunk", "Pairing request from " .. name)
-			end
-			lastPending = snap.pending
+			pruneNotified(snap.pendingDevices)
+			toastPending(snap.pendingDevices)
 		end
 		publish()
 	end)
@@ -381,6 +477,8 @@ end
 local function setHostEnabled(on)
 	snap.haveDesired = true
 	snap.desiredRunning = on == true
+	snap.hostBusy = true
+	settleUntil = nowMs() + (ctl.HOST_SETTLE_MS or 1500)
 	publish()
 	noctalia.runAsync(ctl.systemctlArgv(on and "start" or "stop"))
 end
@@ -486,6 +584,40 @@ local function handleRequest(req)
 			refresh()
 			refreshClients()
 		end)
+	elseif op == "access" then
+		local level = tostring(req.level or "")
+		if not ((ctl.isAccessLevel and ctl.isAccessLevel(level)) or (model.isAccessLevel and model.isAccessLevel(level))) then
+			snap.lastError = "Access level must be full, controller, or view."
+			publish()
+			return
+		end
+		local fingerprint = tostring(req.fingerprint or "")
+		if fingerprint == "" then
+			snap.lastError = "Access needs a device fingerprint."
+			publish()
+			return
+		end
+		runJson({ "access", fingerprint, level }, function()
+			refreshClients()
+		end)
+	elseif op == "rename" then
+		local fingerprint = tostring(req.fingerprint or "")
+		local name = tostring(req.name or "")
+		name = string.gsub(name, "^%s+", "")
+		name = string.gsub(name, "%s+$", "")
+		if fingerprint == "" or name == "" then
+			snap.lastError = "Rename needs a fingerprint and a name."
+			publish()
+			return
+		end
+		runJson({ "rename", fingerprint, name }, function()
+			refreshClients()
+		end)
+	elseif op == "display-release" then
+		runJson({ "display", "release" }, function()
+			refreshDisplays()
+			refreshSummary()
+		end)
 	elseif op == "pair-arm" then
 		runJson({ "pair", "arm" }, function()
 			refresh()
@@ -528,22 +660,32 @@ local function handleRequest(req)
 	end
 end
 
-local function nowMs()
-	if type(noctalia.nowMs) == "function" then
-		return noctalia.nowMs()
-	end
-	return os.time() * 1000
-end
-
 local function startWatcher()
 	if type(noctalia.runStream) ~= "function" then
 		retryAt = nowMs() + (ctl.WATCH_RETRY_MS or 15000)
 		return
 	end
 	local ok = noctalia.runStream(ctl.watchCommand(), function(line)
-		local kind = ctl.eventKind(line, decodeJson)
+		local kind, ev = ctl.eventKind(line, decodeJson)
 		if not kind then
 			return
+		end
+		if ctl.eventIsPairingPending and ctl.eventIsPairingPending(kind) then
+			local device = model.eventDevice and model.eventDevice(ev) or nil
+			if device then
+				toastPending({ device })
+			end
+			refresh()
+			return
+		end
+		if ctl.eventIsStreamStart and ctl.eventIsStreamStart(kind) then
+			if type(noctalia.notify) == "function" then
+				noctalia.notify("Punktfunk streaming", model.streamStartedBody(ev, snap))
+			end
+		elseif ctl.eventIsStreamStop and ctl.eventIsStreamStop(kind) then
+			if type(noctalia.notify) == "function" then
+				noctalia.notify("Punktfunk", model.streamStoppedBody(ev, snap))
+			end
 		end
 		if kind == "ctl.resync" then
 			refreshAll()
@@ -631,6 +773,17 @@ function update()
 	noctalia.setUpdateInterval(2000)
 	verifyWatcher()
 	local now = nowMs()
+	if snap.hostBusy == true and now >= settleUntil then
+		if model.hostSettled(snap) then
+			snap.hostBusy = false
+			snap.haveDesired = false
+		else
+			snap.hostBusy = false
+		end
+		refresh()
+		refreshClients()
+		refreshDisplays()
+	end
 	local panelOpen = noctalia.state.get("panelOpen") == true
 	local panelTab = noctalia.state.get("panelTab") or "overview"
 	if ctl.shouldPollStats(panelOpen, panelTab, snap.state) then

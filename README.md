@@ -12,14 +12,16 @@ Not affiliated with Noctalia beyond using its plugin API. Darwin / macOS are out
 
 ## What it shows
 
-- **Bar widget** — a cast glyph, primary while streaming, dim when the host is stopped, error-colored when a device is waiting or the host certificate does not match. Click opens the panel. Right-click stops a live session, or opens the web console when nothing is streaming.
-- **Panel** — hero with host start/stop, then five tabs:
-  - *Overview* — facts, stop / end-game, bitrate / frames / encode pillars, and a target sparkline.
-  - *Pair* — incoming request with Accept / Reject, the pairing PIN to verify, Moonlight PIN field, and the pairing-window toggle.
-  - *Devices* — both planes; Unpair asks Confirm / Cancel (`y` / `c` while focused).
-  - *Display* — Dedicated / This screen cards, policy, presets.
+- **Bar widget** — `punktfunk-logo.svg` when that file exists (vendored by the logo PR; not added here), otherwise a cast glyph. Semantic fill/border, a primary pip while streaming, and a pending-count badge wrap the mark rather than replacing it. Click opens the panel (Pair tab if something is waiting). Right-click stops a live session, or opens the web console when nothing is streaming.
+- **Panel** — hero with host start/stop (busy until the snapshot settles) and the live codec while streaming, then five tabs:
+  - *Overview* — facts, competing-host banner from `summary.conflicts`, stop / end-game, bitrate / frames / encode pillars, and a target sparkline.
+  - *Pair* — incoming request with Accept / Reject by pending id, the pairing PIN to verify, Moonlight PIN field, and the pairing-window toggle.
+  - *Devices* — both planes; access `full` / `controller` / `view` (`ctl access`); rename (`ctl rename`); Unpair asks Confirm / Cancel (`y` / `c` while focused).
+  - *Display* — Dedicated / This screen cards, policy, presets, and **Release kept displays** (`ctl display release`; never an actively streaming head).
   - *Stats* — the same pillars, encoder detail, and capture charts.
-- **Service** — one long-lived `punktfunk-host ctl watch` stream that drives the widget and panel. A new pairing request also raises a Noctalia notification with Accept / Reject on the Pair tab.
+- **Service** — one long-lived `punktfunk-host ctl watch` stream that drives the widget and panel. `pairing.pending` raises a Noctalia notification with the claimed name and fingerprint tail; `stream.started` / `stream.stopped` raise quiet toasts.
+
+`noctalia.notify(title, body)` and `noctalia.notifyError(title, body)` take two strings and nothing else: **no actions, no click handler, no urgency flag** (plugin_api 24). Approve / Deny therefore stay on the Pair tab, keyed by pending id. Click the bar widget to open that tab.
 - **Shortcut** — control-center tile that opens the same panel.
 
 Keyboard while the panel is focused: `1`–`5` and `h` / `l` switch tabs. A waiting pair opens the Pair tab. Escape closes (host behavior).
@@ -50,8 +52,9 @@ A Punktfunk **host** on the same machine — `punktfunk-host` on `PATH`. The plu
 | --- | --- |
 | `punktfunk-host ctl status \| pending \| pair status \| summary \| clients \| display \| stats --json` | Snapshots |
 | `punktfunk-host ctl watch --kinds pairing.*,stream.*,session.*,host.*` | Event stream |
-| `punktfunk-host ctl approve \| deny \| pin \| unpair \| stop-session \| end-game` | Pairing and session |
+| `punktfunk-host ctl approve \| deny \| pin \| unpair \| access \| rename \| stop-session \| end-game` | Pairing, devices, and session |
 | `punktfunk-host ctl display preset <id>` | Display presets |
+| `punktfunk-host ctl display release` | Tear down kept (not streaming) virtual heads |
 | `punktfunk-host ctl stats record start \| stop` | Frame-timing capture |
 | `punktfunk-host ctl console-url` | One-shot web console ticket |
 | `systemctl --user start \| stop punktfunk-host.service` | Host toggle |

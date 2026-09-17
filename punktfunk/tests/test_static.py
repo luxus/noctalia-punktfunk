@@ -29,7 +29,7 @@ class FixtureTests(unittest.TestCase):
         entry = catalog["plugin"][0]
         for key in ("id", "name", "version", "plugin_api", "author"):
             self.assertEqual(plugin[key], entry[key], key)
-        self.assertEqual("0.1.0", plugin["version"])
+        self.assertEqual("0.2.0", plugin["version"])
         self.assertEqual("exclusive", plugin["panel"][0].get("keyboard_focus"))
         self.assertNotIn("Return", plugin["panel"][0].get("capture_keys", []))
         self.assertEqual("widget.luau", plugin["widget"][0]["entry"])
@@ -58,6 +58,16 @@ class FixtureTests(unittest.TestCase):
         self.assertNotIn("omarchy-shell", readme)
         self.assertIn("standalone", readme.lower())
         self.assertIn("plugin_api` 24", readme)
+        self.assertIn("noctalia.notify", readme)
+        self.assertTrue((ROOT / "docs" / "parity.md").is_file())
+        parity = (ROOT / "docs" / "parity.md").read_text()
+        self.assertIn("noctalia.notify", parity)
+        self.assertIn("ctl access", parity)
+        self.assertIn("display release", parity)
+        self.assertIn("punktfunk-logo.svg", parity)
+        self.assertIn("title+body only", parity)
+        self.assertIn("no actions", parity.lower())
+        self.assertFalse(any((PLUGIN).rglob("*.svg")), "parity PR must not vendor a competing logo SVG")
 
     def test_luau_entrypoints_exist_and_are_not_qml(self):
         for name, functions in LUAU_FILES.items():

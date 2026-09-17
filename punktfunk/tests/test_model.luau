@@ -168,6 +168,66 @@ check("needsYou pending", model.needsYou({ pending = 1 }) == true)
 check("widget streaming glyph", model.widgetGlyph({ state = "streaming" }) == "cast")
 check("widget mismatch glyph", model.widgetGlyph({ pinMismatch = true }) == "alert-triangle")
 check("widget error color", model.widgetColor({ pinMismatch = true }) == "error")
+check("widget pending color", model.widgetColor({ pending = 1 }) == "error")
+check("widget streaming color", model.widgetColor({ state = "streaming" }) == "primary")
+check("widget stopped color", model.widgetColor({ state = "stopped" }) == "on_surface_variant")
+check("widget badge pending", model.widgetBadge({ pending = 2 }) == "2")
+check("widget badge pin", model.widgetBadge({ pinPending = true }) == "1")
+check("widget badge idle", model.widgetBadge({ pending = 0 }) == nil)
+check("widget pip streaming", model.widgetShowPip({ state = "streaming" }) == true)
+check("widget pip idle", model.widgetShowPip({ state = "idle" }) == false)
+check("logo first hit", model.widgetLogoPath(function(path) return path == "punktfunk-logo.svg" end) == "punktfunk-logo.svg")
+check("logo assets fallback", model.widgetLogoPath(function(path) return path == "assets/punktfunk-logo.svg" end) == "assets/punktfunk-logo.svg")
+check("logo miss", model.widgetLogoPath(function() return false end) == nil)
+check("logo canonical path", model.LOGO_PATH == "punktfunk-logo.svg")
+check("widget fill pending", model.widgetFill({ pending = 1 }) == "error/0.22")
+check("widget fill streaming", model.widgetFill({ state = "streaming" }) == "primary/0.22")
+check("widget border streaming", model.widgetBorder({ state = "streaming" }) == "primary")
+
+check("hero codec streaming", model.heroDetail("streaming", { codec = "hevc" }) == "HEVC")
+check("hero codec idle empty", model.heroDetail("idle", { codec = "hevc" }) == "")
+check("hero busy start", model.heroMeta("stopped", "", { hostBusy = true, desiredRunning = true }) == "Starting the host")
+check("hero busy stop", model.heroMeta("idle", "", { hostBusy = true, desiredRunning = false }) == "Stopping the host")
+
+check("access native", model.deviceCanAccess({ name = "pad", access_level = "full" }) == true)
+check("access moonlight", model.deviceCanAccess({ label = "moon" }) == false)
+check("access label", model.accessLabel("controller") == "Controller")
+check("access valid", model.isAccessLevel("view") == true)
+check("access invalid", model.isAccessLevel("admin") == false)
+
+check("conflict empty", model.conflictBanner({ conflicts = {} }) == nil)
+check("conflict one", model.conflictBanner({ conflicts = { "Sunshine (running)" } }) == "Sunshine (running) is also bound on this box")
+check("conflict two", model.conflictBanner({ conflicts = { "Sunshine (installed)", "Apollo (running)" } }) == "Sunshine (installed), Apollo (running) are also bound on this box")
+check("kept displays", model.keptDisplayCount({ kept_displays = 2 }) == 2)
+check("release copy streaming-safe", model.releaseCopy():find("actively streaming", 1, true) ~= nil)
+
+local notifyBody = model.pairingNotifyBody({
+	id = 3,
+	name = "iPad",
+	fingerprint = "0123456789abcdef",
+})
+check("pairing notify title", model.pairingNotifyTitle() == "Punktfunk pairing request")
+check("pairing notify name", notifyBody:find('"iPad" wants to pair', 1, true) ~= nil)
+check("pairing notify tail", notifyBody:find("…6789abcdef", 1, true) ~= nil)
+check("pairing notify pair tab", notifyBody:find("Pair tab", 1, true) ~= nil)
+check("pending id", model.pendingId({ id = 3 }) == "3")
+check("pending id missing", model.pendingId({}) == nil)
+
+local fromEvent = model.eventDevice({
+	kind = "pairing.pending",
+	data = { id = 9, name = "tv", fingerprint = "ffffffffffffffffffaa" },
+})
+check("event device id", fromEvent.id == "9" and fromEvent.name == "tv")
+
+check(
+	"stream start body",
+	model.streamStartedBody({ data = { client = "iPad", mode = "exclusive", hdr = true, app = "Desktop" } })
+		== "iPad connected · exclusive HDR · Desktop"
+)
+check("stream stop body", model.streamStoppedBody({ data = { client = "iPad" } }) == "iPad disconnected")
+check("stream client fallback", model.streamClient({}, { summary = { client_name = "Couch" } }) == "Couch")
+check("host settled after start", model.hostSettled({ hostBusy = true, desiredRunning = true, state = "idle" }) == true)
+check("host not settled", model.hostSettled({ hostBusy = true, desiredRunning = true, state = "stopped" }) == false)
 
 if failed > 0 then
 	error(string.format("%d model checks failed", failed))
