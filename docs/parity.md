@@ -43,7 +43,6 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 | Last ctl error line | `lastError` | Same | full | |
 | Overview: idle facts | Devices paired / Pairing / Host version | Same | full | |
 | Overview: `summary.conflicts[]` | Unused | Panel banner (`model.conflictBanner`) on every tab, including stopped host | noctalia-only | e.g. `Sunshine (running) is also bound on this box`. |
-| Overview: live facts | Resolution, fps, bitrate, first-frame | Same plus **Encode** (`stream.codec`, else `—`) and Encoder when `statsMeta.encoder_backend` is set | full | |
 | Overview: desktop vs launched game | Same copy | Same | full | |
 | Stop the session / End the game | `ctl stop-session` / `end-game` | Same | full | |
 | Overview pillars + target sparkline | 2 s poll on Overview/Stats | Same (`ctl.shouldPollStats`) | full | |
