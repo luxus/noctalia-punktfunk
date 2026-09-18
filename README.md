@@ -69,6 +69,12 @@ Every management call is `punktfunk-host ctl`. **The plugin never speaks HTTPS, 
 
 Display mode does **not** call `punktfunk-omarchy`. That helper is Omarchy/Hyprland wiring. This plugin writes the same `display-settings.json` / `host.env` contract the helper uses, then `systemctl --user try-restart punktfunk-host.service`. HDR/4:4:4 **erlaubt** gates are the same file (`PUNKTFUNK_10BIT`, `PUNKTFUNK_444`); they only allow. Live **verbunden** HDR/chroma come from `ctl status` / `ctl stats` / the stream snapshot — missing fields show `—`.
 
+## Follow-ups
+
+`punktfunk-host ctl` has no settings/env verb (`ctl env get|set|unset` or equivalent). Capture mode and HDR/4:4:4 **erlaubt** therefore write `~/.config/punktfunk/host.env` and `display-settings.json`, then `systemctl --user try-restart punktfunk-host.service` (plugin already does this; a hand-edit uses the same restart). Restart works; mutation is the gap.
+
+Preferred: host-managed store (console + ctl); plugin calls ctl only; **no plugin-owned `host.env` writes**. Do not invent that verb here. Upstream FR: [`docs/parity.md`](docs/parity.md) → [`luxus/punktfunk`](https://github.com/luxus/punktfunk).
+
 ## How it talks to the host
 
 One process runs continuously: `ctl watch`, in `service.luau`. Exactly one, because the host caps concurrent event streams and the web console holds one of them. `ctl.resync` re-snapshots rather than trusting a stale view. `runStream` is a shell string (the plugin_api 24 argv form is `runAsync` only), so the watch kinds are single-quoted to stop `pairing.*` from globbing. `runStream` does not report a dead child; the service re-arms the watcher with `processMatches`, with a 15s backoff like the Omarchy plugin.
