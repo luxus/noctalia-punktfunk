@@ -1,7 +1,10 @@
-# Punktfunk logo
+# Punktfunk logos
 
-Vendored from [luxus/punktfunk](https://github.com/luxus/punktfunk) `assets/punktfunk-logo.svg` (MIT OR Apache-2.0). Do not restyle.
+Vendored from [luxus/punktfunk](https://github.com/luxus/punktfunk) `assets/punktfunk-logo.svg` (MIT OR Apache-2.0). Do not restyle the palette.
 
-The same file is at plugin-relative `punktfunk-logo.svg` and `assets/punktfunk-logo.svg` so `model.widgetLogoPath` hits either path. Overlay fill/border/pip/badge wrap this SVG; they are not this file.
+| File | What it is | Where it is used |
+| --- | --- | --- |
+| `punktfunk-logo.svg` | Full lockup: lens + PUNKTFUNK wordmark (`viewBox` 579×298). Also copied to plugin-relative `punktfunk-logo.svg`. | Panel hero |
+| `punktfunk-mark.svg` | Lens only, cropped from the official lockup. No wordmark. | Bar widget |
 
-Noctalia `plugin.toml` `icon` and `shortcut.setIcon` only accept a Tabler/Material glyph name, so catalog listings keep `cast`.
+Overlay fill/border/pip/badge wrap the bar mark; they are not this file. Noctalia `plugin.toml` `icon` and `shortcut.setIcon` only accept a Tabler/Material glyph name, so catalog listings keep `cast`.

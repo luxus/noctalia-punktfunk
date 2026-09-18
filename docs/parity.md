@@ -25,7 +25,7 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 
 | Capability | Omarchy | Noctalia | Status | Notes |
 | --- | --- | --- | --- | --- |
-| Bar: stopped / idle / streaming | Two-ring `LensMark`; filled while streaming, dim when stopped | Brand mark is vendored `punktfunk-logo.svg` (also `assets/punktfunk-logo.svg`). Fallback glyph if missing. Streaming = `primary` fill/border + pip around the mark | full | Overlay, not a replacement. `model.widgetLogoPath` / `model.LOGO_PATH`. `TODO(bc-e0bdb3f3)` in `widget.luau`. |
+| Bar: stopped / idle / streaming | Two-ring `LensMark`; filled while streaming, dim when stopped | Brand mark is vendored `assets/punktfunk-mark.svg` (lens only). Fallback glyph if missing. Streaming = `primary` fill/border + pip around the mark | full | Overlay, not a replacement. `model.widgetLogoPath` / `model.MARK_PATH`. |
 | Bar: device waiting | Urgent colour **and** corner badge | Error fill/border **around the logo** plus pending-count badge; tooltip `widget.pending` | full | Click opens the Pair tab (`focusPair`). Logo stays the mark. |
 | Bar: certificate pin mismatch (ctl exit 4) | Warning glyph, urgent colour | Error chrome around the logo plus a small `alert-triangle` overlay (logo is not swapped out). Tooltip `widget.pin_mismatch` | full | Same distinction from “host down”. |
 | Click opens panel | left-click → `root.toggle()` | `widget.onClick` → `noctalia.togglePanel("luxus/punktfunk:panel")`; waiting pair also sets `focusPair` | full | |
@@ -36,13 +36,13 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 | Tab badge: Pair · N | `tabLabel(id, pending)` | Same | full | |
 | Waiting pair focuses Pair tab | `needsYou` → pair | Same, plus `focusPair` from the pairing toast / bar click | full | |
 | Hero: title / rotating phrases / host toggle | phrases + toggle; 2800 ms fade | Same phrases and toggle; phrase swap without fade | partial | Animation is Omarchy-only (skipped). |
-| Hero: live codec | `PanelHero.detail` = `stream.codec` | `model.heroDetail` in the header | full | |
+| Hero: live codec | `PanelHero.detail` = `stream.codec` | `model.heroDetail` in the header (`—` when streaming with no codec) | full | |
 | Host start / stop | `systemctl --user start\|stop`; optimistic `haveDesired`; 1.5 s `settle` busy | Same unit, optimistic flag, `hostBusy` + `ctl.HOST_SETTLE_MS` (1500) disables the toggle until snapshot | full | |
 | Certificate-mismatch banner | Panel text | Same wording in `panel.tree()` | full | |
 | Last ctl error line | `lastError` | Same | full | |
 | Overview: idle facts | Devices paired / Pairing / Host version | Same | full | |
 | Overview: `summary.conflicts[]` | Unused | Panel banner (`model.conflictBanner`) on every tab, including stopped host | noctalia-only | e.g. `Sunshine (running) is also bound on this box`. |
-| Overview: live facts | Resolution, fps, bitrate, first-frame | Same | full | |
+| Overview: live facts | Resolution, fps, bitrate, first-frame | Same plus **Encode** (`stream.codec`, else `—`) and Encoder when `statsMeta.encoder_backend` is set | full | |
 | Overview: desktop vs launched game | Same copy | Same | full | |
 | Stop the session / End the game | `ctl stop-session` / `end-game` | Same | full | |
 | Overview pillars + target sparkline | 2 s poll on Overview/Stats | Same (`ctl.shouldPollStats`) | full | |
@@ -127,7 +127,7 @@ Keep using `punktfunk-host ctl` only.
 | 3 | Surface `summary.conflicts[]` | **Shipped.** Panel banner. |
 | 4 | `ctl display release` for kept heads | **Shipped.** Display tab; copy states it never releases an actively streaming head. |
 | 5 | Stream start/stop toasts | **Shipped.** From `stream.*` watch kinds. |
-| — | Bar pending badge / clearer streaming state | **Shipped.** Badge + streaming pip + fill/border **around** vendored `punktfunk-logo.svg`. |
+| — | Bar pending badge / clearer streaming state | **Shipped.** Badge + streaming pip + fill/border **around** vendored `assets/punktfunk-mark.svg` (lens only). Panel hero uses the full `punktfunk-logo.svg` lockup. |
 | — | Hero live codec + host-toggle busy/settle | **Shipped.** |
 
 ### Deferred (not trivial / out of scope)
