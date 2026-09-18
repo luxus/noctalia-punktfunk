@@ -43,6 +43,15 @@ if model == nil then
 		heroDetail = function()
 			return ""
 		end,
+		liveHdrText = function()
+			return "—"
+		end,
+		liveChromaText = function()
+			return "—"
+		end,
+		policyAllowHint = function()
+			return "Gilt ab der nächsten Sitzung. Der Host erlaubt nur; der Client wählt."
+		end,
 		codecText = function()
 			return "—"
 		end,
@@ -637,6 +646,26 @@ local function modeCard(kind, label, detail)
 	})
 end
 
+local function allowCard(key, selected, label, detail, op, allowed)
+	return ui.column({
+		key = key,
+		flexGrow = 1,
+		gap = 4,
+		padding = 12,
+		align = "center",
+		fill = selected and "primary/0.18" or "surface_variant/0.45",
+		border = selected and "primary" or "outline",
+		borderWidth = 1,
+		radius = 8,
+		onClick = function()
+			request(op, { allowed = allowed })
+		end,
+	}, {
+		ui.label({ text = label, fontWeight = "bold", textAlign = "center" }),
+		ui.label({ text = detail, fontSize = 12, color = "on_surface_variant", textAlign = "center" }),
+	})
+end
+
 local function devicesDisplayTab()
 	local presets = model.allPresets(snap.displayPresets, snap.customPresets)
 	local policy = model.policyRows(snap.displayEffective)
@@ -649,6 +678,56 @@ local function devicesDisplayTab()
 		ui.row({ gap = 10, key = "mode-cards" }, {
 			modeCard("dedicated", "Dedicated", "Virtual display at the client's size"),
 			modeCard("mirror", "This screen", "The primary monitor on this box"),
+		}),
+		ui.column({ gap = 6, key = "allow-policy" }, {
+			ui.label({ text = "Erlaubt", fontWeight = "medium" }),
+			ui.label({
+				text = "Host-Policy für die nächste Sitzung — nicht der laufende Stream.",
+				fontSize = 12,
+				color = "on_surface_variant",
+			}),
+		}),
+		ui.row({ gap = 10, key = "hdr-allow-cards" }, {
+			allowCard(
+				"hdr-sdr",
+				snap.hdrAllowed == false,
+				"SDR",
+				"8-bit · erzwingt SDR",
+				"hdr-allowed",
+				false
+			),
+			allowCard(
+				"hdr-allow",
+				snap.hdrAllowed ~= false,
+				"HDR erlaubt",
+				"10-bit / HDR, wenn der Client es wählt",
+				"hdr-allowed",
+				true
+			),
+		}),
+		ui.row({ gap = 10, key = "chroma-allow-cards" }, {
+			allowCard(
+				"chroma-420",
+				snap.chroma444Allowed == false,
+				"4:2:0",
+				"Erzwingt 4:2:0",
+				"chroma-allowed",
+				false
+			),
+			allowCard(
+				"chroma-444",
+				snap.chroma444Allowed ~= false,
+				"4:4:4 erlaubt",
+				"Volles Chroma, wenn der Client es wählt",
+				"chroma-allowed",
+				true
+			),
+		}),
+		ui.label({
+			text = model.policyAllowHint and model.policyAllowHint()
+				or "Gilt ab der nächsten Sitzung. Der Host erlaubt nur; der Client wählt.",
+			fontSize = 12,
+			color = "on_surface_variant",
 		}),
 	}
 	for _, row in ipairs(factGrid(policy)) do
@@ -731,6 +810,14 @@ local function statsTab()
 			.. model.displayOrDash(snap.stream.fps)
 			.. " · "
 			.. (model.codecText and model.codecText(snap.stream, snap.statsMeta) or "—"),
+	}))
+	table.insert(children, ui.label({
+		text = "HDR (verbunden) "
+			.. (model.liveHdrText and model.liveHdrText(snap) or "—")
+			.. " · Chroma (verbunden) "
+			.. (model.liveChromaText and model.liveChromaText(snap) or "—"),
+		fontSize = 12,
+		color = "on_surface_variant",
 	}))
 	local pillars = pillarsRow(model.statsPillars(snap))
 	if pillars then
@@ -828,7 +915,7 @@ function tree()
 			color = "on_surface_variant",
 		}),
 	}
-	local codec = model.heroDetail and model.heroDetail(snap.state, snap.stream, snap.statsMeta) or ""
+	local codec = model.heroDetail and model.heroDetail(snap.state, snap.stream, snap.statsMeta, snap) or ""
 	if codec ~= "" then
 		table.insert(headerMeta, ui.label({
 			text = codec,

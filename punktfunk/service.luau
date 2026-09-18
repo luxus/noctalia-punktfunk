@@ -131,6 +131,14 @@ ctl = loadModule("./ctl.luau", {
 	stripCapturePin = function(text)
 		return text or ""
 	end,
+	hostEnvBool = function()
+		return true
+	end,
+	hostEnvSet = function(text, key, value)
+		return tostring(key) .. "=" .. tostring(value) .. "\n"
+	end,
+	ENV_10BIT = "PUNKTFUNK_10BIT",
+	ENV_444 = "PUNKTFUNK_444",
 	primaryConnector = function()
 		return nil
 	end,
@@ -285,8 +293,9 @@ end
 local function markStopped()
 	snap.state = "stopped"
 	snap.sessions = 0
-	snap.stream = nil
-	if snap.hostBusy == true and snap.desiredRunning == false then
+		snap.stream = nil
+		snap.hostSessions = {}
+		if snap.hostBusy == true and snap.desiredRunning == false then
 		snap.hostBusy = false
 		snap.haveDesired = false
 	elseif not (snap.haveDesired and snap.desiredRunning) then
@@ -365,6 +374,11 @@ local function refreshStatus()
 			snap.state = "idle"
 		end
 		snap.stream = data.stream
+		if type(data.sessions) == "table" then
+			snap.hostSessions = data.sessions
+		else
+			snap.hostSessions = {}
+		end
 		snap.audioStreaming = data.audio_streaming == true
 		if model.hostSettled(snap) then
 			snap.hostBusy = false
@@ -423,15 +437,22 @@ local function refreshClients()
 	end)
 end
 
-local function readCaptureMode()
+local function readHostEnv()
 	local settingsRaw = noctalia.readFile(ctl.displaySettingsPath(configHome()))
 	local envRaw = noctalia.readFile(ctl.hostEnvPath(configHome()))
 	local settings = decodeJson(settingsRaw) or {}
 	snap.captureMode = ctl.captureModeFromConfig(settings, envRaw)
+	if type(ctl.hostEnvBool) == "function" then
+		snap.hdrAllowed = ctl.hostEnvBool(envRaw, ctl.ENV_10BIT or "PUNKTFUNK_10BIT", true)
+		snap.chroma444Allowed = ctl.hostEnvBool(envRaw, ctl.ENV_444 or "PUNKTFUNK_444", true)
+	else
+		snap.hdrAllowed = true
+		snap.chroma444Allowed = true
+	end
 end
 
 local function refreshDisplays()
-	readCaptureMode()
+	readHostEnv()
 	runJson({ "display" }, function(data, err)
 		if err or type(data) ~= "table" then
 			publish()
@@ -530,6 +551,34 @@ local function setCaptureMode(mode)
 		publish()
 		noctalia.runAsync(ctl.systemctlArgv("try-restart"))
 	end)
+end
+
+local function setHostPolicy(envKey, allowed)
+	if envKey ~= (ctl.ENV_10BIT or "PUNKTFUNK_10BIT") and envKey ~= (ctl.ENV_444 or "PUNKTFUNK_444") then
+		return
+	end
+	if allowed ~= true and allowed ~= false then
+		return
+	end
+	local envPath = ctl.hostEnvPath(configHome())
+	local envRaw = noctalia.readFile(envPath)
+	if type(envRaw) ~= "string" then
+		envRaw = ""
+	end
+	local nextText = envRaw
+	if type(ctl.hostEnvSet) == "function" then
+		nextText = ctl.hostEnvSet(envRaw, envKey, allowed and "1" or "0")
+	else
+		nextText = tostring(envKey) .. "=" .. (allowed and "1" or "0") .. "\n"
+	end
+	noctalia.writeFile(envPath, nextText)
+	if envKey == (ctl.ENV_10BIT or "PUNKTFUNK_10BIT") then
+		snap.hdrAllowed = allowed
+	else
+		snap.chroma444Allowed = allowed
+	end
+	publish()
+	noctalia.runAsync(ctl.systemctlArgv("try-restart"))
 end
 
 local function openConsole()
@@ -640,6 +689,10 @@ local function handleRequest(req)
 		end)
 	elseif op == "capture-mode" then
 		setCaptureMode(req.mode)
+	elseif op == "hdr-allowed" then
+		setHostPolicy(ctl.ENV_10BIT or "PUNKTFUNK_10BIT", req.allowed == true)
+	elseif op == "chroma-allowed" then
+		setHostPolicy(ctl.ENV_444 or "PUNKTFUNK_444", req.allowed == true)
 	elseif op == "capture-start" then
 		runJson({ "stats", "record", "start" }, function()
 			refreshStats()

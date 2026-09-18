@@ -36,7 +36,8 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 | Tab badge: Pair · N | `tabLabel(id, pending)` | Same | full | |
 | Waiting pair focuses Pair tab | `needsYou` → pair | Same, plus `focusPair` from the pairing toast / bar click | full | |
 | Hero: title / rotating phrases / host toggle | phrases + toggle; 2800 ms fade | Same phrases and toggle; phrase swap without fade | partial | Animation is Omarchy-only (skipped). |
-| Hero: live codec | `PanelHero.detail` = `stream.codec` | `model.heroDetail` in the header (`—` when streaming with no codec) | full | |
+| Hero: live codec | `PanelHero.detail` = `stream.codec` | `model.heroDetail` in the header (`codec · HDR ja\|nein\|— · chroma`, `—` when streaming with no codec) | full | |
+| Overview: live facts | Resolution, fps, bitrate, first-frame | Same plus **Encode** (`stream.codec`, else `—`), **HDR (verbunden)** / **Chroma (verbunden)** (`ja`/`nein`/`4:4:4`/`4:2:0`, else `—`; never omitted), Encoder when `statsMeta.encoder_backend` is set | full | |
 | Host start / stop | `systemctl --user start\|stop`; optimistic `haveDesired`; 1.5 s `settle` busy | Same unit, optimistic flag, `hostBusy` + `ctl.HOST_SETTLE_MS` (1500) disables the toggle until snapshot | full | |
 | Certificate-mismatch banner | Panel text | Same wording in `panel.tree()` | full | |
 | Last ctl error line | `lastError` | Same | full | |
@@ -56,10 +57,11 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 | Devices: change `access_level` | Read-only | `ctl access <fp> <full\|controller\|view>` chips on native rows | noctalia-only | |
 | Devices: rename | No UI | `ctl rename <fp> <name>` on native rows | noctalia-only | |
 | Display: Dedicated vs This screen | helper `mode` | Writes `display-settings.json` / `host.env`, `try-restart`; **must not** call `punktfunk-omarchy` | full* | |
+| Display: HDR / 4:4:4 **erlaubt** | none | `host.env` `PUNKTFUNK_10BIT` / `PUNKTFUNK_444` (default on), `try-restart`. Next session; host only allows, client still picks. Distinct from live **verbunden** rows. | noctalia-only | |
 | Display: policy + presets | Same | Same | full | |
 | Display: live / lingered heads listed | Deliberately not listed | Same omission | full (intentional) | |
 | Display: release kept heads | unused (docs tell you to run ctl) | Display-tab **Release kept displays** → `ctl display release` (no slot = all kept). Copy: never touches an actively streaming head. | noctalia-only | |
-| Stats: stream line, pillars, encoder, capture | Same | Same | full | |
+| Stats: stream line, pillars, encoder, capture | Same | Same, plus live **HDR (verbunden)** / **Chroma (verbunden)** on the stream line | full | |
 | Keyboard: `1`–`5`, `h`/`l` tabs | Same | Same | full | |
 | Keyboard: `j`/`k` cursor, Enter activate | Omarchy chrome | Intentionally not captured (PIN field) | missing | Deferred. Click path is complete. |
 | Keyboard: `x` deny focused pair; Esc closes | `x` on incoming/pending | `x` denies incoming only. Esc is host close | partial | Deferred (PIN / cursor conflict). |
@@ -129,6 +131,7 @@ Keep using `punktfunk-host ctl` only.
 | 5 | Stream start/stop toasts | **Shipped.** From `stream.*` watch kinds. |
 | — | Bar pending badge / clearer streaming state | **Shipped.** Badge + streaming pip + fill/border **around** vendored `assets/punktfunk-mark.svg` (lens only). Panel hero uses the full `punktfunk-logo.svg` lockup. |
 | — | Hero live codec + host-toggle busy/settle | **Shipped.** |
+| — | Display HDR/4:4:4 **erlaubt** + Overview live **verbunden** HDR/chroma | **Shipped.** `host.env` policy gates; live rows from `ctl status`/`stats`/stream (`—` if missing). `hdr-probe` left unwired (multi-line Linux diagnostic, must not block the toggles). |
 
 ### Deferred (not trivial / out of scope)
 

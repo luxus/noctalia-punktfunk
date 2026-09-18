@@ -13,12 +13,12 @@ Not affiliated with Noctalia beyond using its plugin API. Darwin / macOS are out
 ## What it shows
 
 - **Bar widget** — official lens mark (`assets/punktfunk-mark.svg`, no wordmark), otherwise a cast glyph. Semantic fill/border, a primary pip while streaming, and a pending-count badge wrap the mark rather than replacing it. Optional `show_label` draws "Punktfunk" as text next to the mark. Click opens the panel (Pair tab if something is waiting). Right-click stops a live session, or opens the web console when nothing is streaming.
-- **Panel** — hero with the full lockup (`assets/punktfunk-logo.svg`, lens + wordmark) at a readable size, host start/stop (busy until the snapshot settles), and the live codec while streaming, then five tabs:
-  - *Overview* — facts (including Encode/codec), competing-host banner from `summary.conflicts`, stop / end-game, bitrate / frames / encode pillars, and a target sparkline.
+- **Panel** — hero with the full lockup (`assets/punktfunk-logo.svg`, lens + wordmark) at a readable size, host start/stop (busy until the snapshot settles), and the live codec · HDR · chroma while streaming, then five tabs:
+  - *Overview* — facts (including Encode/codec and live **HDR (verbunden)** / **Chroma (verbunden)**), competing-host banner from `summary.conflicts`, stop / end-game, bitrate / frames / encode pillars, and a target sparkline.
   - *Pair* — incoming request with Accept / Reject by pending id, the pairing PIN to verify, Moonlight PIN field, and the pairing-window toggle.
   - *Devices* — both planes; access `full` / `controller` / `view` (`ctl access`); rename (`ctl rename`); Unpair asks Confirm / Cancel (`y` / `c` while focused).
-  - *Display* — Dedicated / This screen cards, policy, presets, and **Release kept displays** (`ctl display release`; never an actively streaming head).
-  - *Stats* — the same pillars, encoder detail, and capture charts.
+  - *Display* — Dedicated / This screen cards; **HDR erlaubt** / **4:4:4 erlaubt** host policy (`PUNKTFUNK_10BIT` / `PUNKTFUNK_444` in `host.env`, next session; the client still picks); policy, presets, and **Release kept displays** (`ctl display release`; never an actively streaming head).
+  - *Stats* — the same pillars, encoder detail, live **HDR (verbunden)** / **Chroma (verbunden)**, and capture charts.
 - **Service** — one long-lived `punktfunk-host ctl watch` stream that drives the widget and panel. `pairing.pending` raises a Noctalia notification with the claimed name and fingerprint tail; `stream.started` / `stream.stopped` raise quiet toasts.
 
 `noctalia.notify(title, body)` and `noctalia.notifyError(title, body)` take two strings and nothing else: **no actions, no click handler, no urgency flag** (plugin_api 24). Approve / Deny therefore stay on the Pair tab, keyed by pending id. Click the bar widget to open that tab.
@@ -61,12 +61,13 @@ A Punktfunk **host** on the same machine — `punktfunk-host` on `PATH`. The plu
 | `punktfunk-host ctl console-url` | One-shot web console ticket |
 | `systemctl --user start \| stop punktfunk-host.service` | Host toggle |
 | `punktfunk-host list-monitors` plus `~/.config/punktfunk/display-settings.json` | Dedicated vs This screen |
+| `~/.config/punktfunk/host.env` (`PUNKTFUNK_10BIT`, `PUNKTFUNK_444`) plus `systemctl --user try-restart` | Display-tab HDR / 4:4:4 **erlaubt** policy |
 
 Every management call is `punktfunk-host ctl`. **The plugin never speaks HTTPS, never holds the operator token, and never sees the host’s certificate.** `ctl` reads the token and certificate from the 0700 config directory in its own process, pins the certificate before sending the token, and prints JSON on stdout. Exit 4 is a certificate mismatch: something that is not your host answered on the management port, and no credential was transmitted.
 
 `service.luau` is the only spawn site. Panel and widget publish a `request` on `noctalia.state`; the service runs it.
 
-Display mode does **not** call `punktfunk-omarchy`. That helper is Omarchy/Hyprland wiring. This plugin writes the same `display-settings.json` / `host.env` contract the helper uses, then `systemctl --user try-restart punktfunk-host.service`.
+Display mode does **not** call `punktfunk-omarchy`. That helper is Omarchy/Hyprland wiring. This plugin writes the same `display-settings.json` / `host.env` contract the helper uses, then `systemctl --user try-restart punktfunk-host.service`. HDR/4:4:4 **erlaubt** gates are the same file (`PUNKTFUNK_10BIT`, `PUNKTFUNK_444`); they only allow. Live **verbunden** HDR/chroma come from `ctl status` / `ctl stats` / the stream snapshot — missing fields show `—`.
 
 ## How it talks to the host
 

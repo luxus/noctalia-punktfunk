@@ -92,7 +92,9 @@ local live = model.sessionFacts({
 check("live resolution", live[1].v == "1920 × 1080")
 check("live bitrate", live[3].v == "40.0 Mbps")
 check("live encode missing", live[4].k == "Encode" and live[4].v == "—")
-check("live first frame", live[5].v == "18 ms")
+check("live hdr missing dash", live[5].k == "HDR (verbunden)" and live[5].v == "—")
+check("live chroma missing dash", live[6].k == "Chroma (verbunden)" and live[6].v == "—")
+check("live first frame", live[7].v == "18 ms")
 
 local liveCodec = model.sessionFacts({
 	state = "streaming",
@@ -101,7 +103,9 @@ local liveCodec = model.sessionFacts({
 	statsMeta = { encoder_backend = "nvenc", gpu = "RTX 4090" },
 })
 check("live encode codec", liveCodec[4].v == "HEVC")
-check("live encoder backend", liveCodec[5].k == "Encoder" and liveCodec[5].v == "nvenc · RTX 4090")
+check("live hdr still dashed", liveCodec[5].k == "HDR (verbunden)" and liveCodec[5].v == "—")
+check("live chroma still dashed", liveCodec[6].v == "—")
+check("live encoder backend", liveCodec[7].k == "Encoder" and liveCodec[7].v == "nvenc · RTX 4090")
 
 local liveEmptyStream = model.sessionFacts({
 	state = "streaming",
@@ -109,6 +113,8 @@ local liveEmptyStream = model.sessionFacts({
 	stream = nil,
 })
 check("live nil stream still shows encode", liveEmptyStream[4].k == "Encode" and liveEmptyStream[4].v == "—")
+check("live nil stream hdr row", liveEmptyStream[5].k == "HDR (verbunden)" and liveEmptyStream[5].v == "—")
+check("live nil stream chroma row", liveEmptyStream[6].k == "Chroma (verbunden)" and liveEmptyStream[6].v == "—")
 check("live nil stream bitrate dash", liveEmptyStream[3].v == "—")
 
 check("actions idle empty", #model.sessionActions(false, true) == 0)
@@ -215,10 +221,20 @@ check("widget fill pending", model.widgetFill({ pending = 1 }) == "error/0.22")
 check("widget fill streaming", model.widgetFill({ state = "streaming" }) == "primary/0.22")
 check("widget border streaming", model.widgetBorder({ state = "streaming" }) == "primary")
 
-check("hero codec streaming", model.heroDetail("streaming", { codec = "hevc" }) == "HEVC")
+check("hero codec streaming", model.heroDetail("streaming", { codec = "hevc" }) == "HEVC · HDR — · —")
 check("hero codec idle empty", model.heroDetail("idle", { codec = "hevc" }) == "")
-check("hero codec streaming dash", model.heroDetail("streaming", {}) == "—")
-check("hero codec from meta", model.heroDetail("streaming", {}, { codec = "av1" }) == "AV1")
+check("hero codec streaming dash", model.heroDetail("streaming", {}) == "— · HDR — · —")
+check("hero codec from meta", model.heroDetail("streaming", {}, { codec = "av1" }) == "AV1 · HDR — · —")
+check("hero live hdr ja", model.heroDetail("streaming", { codec = "hevc", hdr = true, chroma = "4:4:4" }) == "HEVC · HDR ja · 4:4:4")
+check("hero live hdr nein", model.heroDetail("streaming", { codec = "hevc", hdr = false, chroma = "4:2:0" }) == "HEVC · HDR nein · 4:2:0")
+check("live hdr from sessions", model.liveHdrText({ hostSessions = { { hdr = true } } }) == "ja")
+check("live hdr false", model.liveHdrText({ stream = { hdr = false } }) == "nein")
+check("live hdr missing", model.liveHdrText({ stream = { codec = "hevc" } }) == "—")
+check("live chroma 444", model.liveChromaText({ stream = { chroma = "444" } }) == "4:4:4")
+check("live chroma 420 from stats", model.liveChromaText({ statsMeta = { chroma_subsampling = "4:2:0" } }) == "4:2:0")
+check("live chroma missing", model.liveChromaText({}) == "—")
+check("policy allow hint next session", model.policyAllowHint():find("nächsten Sitzung", 1, true) ~= nil)
+check("policy allow hint client picks", model.policyAllowHint():find("Client wählt", 1, true) ~= nil)
 check("encoder empty dash", model.encoderText(nil) == "—")
 check("encoder blank dash", model.encoderText({ encoder_backend = "" }) == "—")
 check("encoder backend", model.encoderText({ encoder_backend = "vaapi", gpu = "Arc" }) == "vaapi · Arc")
