@@ -3,9 +3,8 @@
 -- column/row/scroll only. ui.box is a leaf swatch, not a flex parent.
 -- Do not error() at load: a thrown panel entry is an empty surface.
 -- All host calls go through the [[service]] via noctalia.state request.
--- Hero mark is punktfunk-logo.svg (also assets/punktfunk-logo.svg).
--- Bar state colours and the pending badge live in widget.luau around that
--- same path. Do not replace overlay chrome with a competing mark.
+-- Hero lockup is assets/punktfunk-logo.svg (lens + wordmark). Bar chrome in
+-- widget.luau wraps the lens-only mark, not this file.
 
 local model
 local requireOk, requireResult = pcall(require, "./model.luau")
@@ -44,6 +43,24 @@ if model == nil then
 		heroDetail = function()
 			return ""
 		end,
+		codecText = function()
+			return "—"
+		end,
+		encoderText = function()
+			return "—"
+		end,
+		displayOrDash = function(value)
+			if value == nil or value == "" then
+				return "—"
+			end
+			return tostring(value)
+		end,
+		panelLogoPath = function()
+			return "assets/punktfunk-logo.svg"
+		end,
+		LOGO_PATH = "assets/punktfunk-logo.svg",
+		PANEL_LOGO_WIDTH = 140,
+		PANEL_LOGO_HEIGHT = 72,
 		heroPhrase = function()
 			return ""
 		end,
@@ -199,6 +216,13 @@ local function setTab(index)
 	if (tabId() == "stats" or tabId() == "overview") and snap.state == "streaming" then
 		request("refresh-stats")
 	end
+end
+
+local function fileExists(path)
+	if type(noctalia.fileExists) ~= "function" then
+		return false
+	end
+	return noctalia.fileExists(path) == true
 end
 
 local function paint()
@@ -700,7 +724,13 @@ local function statsTab()
 		return ui.column({ gap = 12, key = "stats" }, children)
 	end
 	table.insert(children, ui.label({
-		text = tostring(snap.stream.width) .. "×" .. tostring(snap.stream.height) .. " @ " .. tostring(snap.stream.fps) .. " · " .. string.upper(tostring(snap.stream.codec or "")),
+		text = model.displayOrDash(snap.stream.width)
+			.. "×"
+			.. model.displayOrDash(snap.stream.height)
+			.. " @ "
+			.. model.displayOrDash(snap.stream.fps)
+			.. " · "
+			.. (model.codecText and model.codecText(snap.stream, snap.statsMeta) or "—"),
 	}))
 	local pillars = pillarsRow(model.statsPillars(snap))
 	if pillars then
@@ -713,14 +743,15 @@ local function statsTab()
 			color = "on_surface_variant",
 		}))
 	end
-	if type(snap.statsMeta) == "table" and snap.statsMeta.encoder_backend then
-		local gpu = snap.statsMeta.gpu and (" · " .. tostring(snap.statsMeta.gpu)) or ""
-		table.insert(children, ui.label({
-			text = tostring(snap.statsMeta.encoder_backend) .. gpu,
-			fontSize = 12,
-			color = "on_surface_variant",
-		}))
+	local encoder = model.encoderText and model.encoderText(snap.statsMeta) or "—"
+	if encoder == "—" then
+		encoder = "Encoder —"
 	end
+	table.insert(children, ui.label({
+		text = encoder,
+		fontSize = 12,
+		color = "on_surface_variant",
+	}))
 	table.insert(children, ui.separator({}))
 	local captureLabel = "FRAME TIMINGS"
 	if snap.captureArmed then
@@ -797,7 +828,7 @@ function tree()
 			color = "on_surface_variant",
 		}),
 	}
-	local codec = model.heroDetail and model.heroDetail(snap.state, snap.stream) or ""
+	local codec = model.heroDetail and model.heroDetail(snap.state, snap.stream, snap.statsMeta) or ""
 	if codec ~= "" then
 		table.insert(headerMeta, ui.label({
 			text = codec,
@@ -805,11 +836,14 @@ function tree()
 			color = "primary",
 		}))
 	end
+	local logoPath = model.panelLogoPath and model.panelLogoPath(fileExists) or (model.LOGO_PATH or "assets/punktfunk-logo.svg")
+	local logoW = model.PANEL_LOGO_WIDTH or 140
+	local logoH = model.PANEL_LOGO_HEIGHT or 72
 	local headerChildren = {
 		ui.image({
-			path = "assets/punktfunk-logo.svg",
-			width = 28,
-			height = 28,
+			path = logoPath,
+			width = logoW,
+			height = logoH,
 			fit = "contain",
 		}),
 		ui.column({ flexGrow = 1, gap = 2 }, headerMeta),

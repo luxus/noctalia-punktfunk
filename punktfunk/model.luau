@@ -20,13 +20,20 @@ model.TAB_NAMES = { "Overview", "Pair", "Devices", "Display", "Stats" }
 model.TAB_IDS = { "overview", "pair", "devices", "display", "stats" }
 model.ACCESS_LEVELS = { "full", "controller", "view" }
 model.ACCESS_LABELS = { full = "Full", controller = "Controller", view = "View" }
--- TODO(bc-e0bdb3f3): `punktfunk-logo.svg` is vendored at both probe paths.
--- Overlay pending badge + state colours around it. Glyph is fallback only.
-model.LOGO_PATH = "punktfunk-logo.svg"
-model.LOGO_PATHS = {
-	"punktfunk-logo.svg",
-	"assets/punktfunk-logo.svg",
+-- Bar uses the lens-only mark. Panel hero uses the full lockup (lens + wordmark).
+model.MARK_PATH = "assets/punktfunk-mark.svg"
+model.MARK_PATHS = {
+	"assets/punktfunk-mark.svg",
+	"punktfunk-mark.svg",
 }
+model.LOGO_PATH = "assets/punktfunk-logo.svg"
+model.LOGO_PATHS = {
+	"assets/punktfunk-logo.svg",
+	"punktfunk-logo.svg",
+}
+model.WIDGET_MARK_SIZE = 16
+model.PANEL_LOGO_WIDTH = 140
+model.PANEL_LOGO_HEIGHT = 72
 
 local function toNumber(value, fallback)
 	local n = tonumber(value)
@@ -104,22 +111,66 @@ function model.heroMeta(state, phrase, snap)
 	return "Host is stopped"
 end
 
+local function blank(value)
+	if value == nil then
+		return true
+	end
+	if type(value) ~= "string" then
+		return false
+	end
+	local trimmed = string.gsub(value, "^%s+", "")
+	trimmed = string.gsub(trimmed, "%s+$", "")
+	return trimmed == ""
+end
+
+function model.displayOrDash(value)
+	if blank(value) then
+		return "—"
+	end
+	return tostring(value)
+end
+
 function model.heroCodec(stream)
 	if type(stream) ~= "table" then
 		return ""
 	end
 	local codec = stream.codec
-	if codec == nil or tostring(codec) == "" then
+	if blank(codec) then
 		return ""
 	end
 	return string.upper(tostring(codec))
 end
 
-function model.heroDetail(state, stream)
+function model.codecText(stream, statsMeta)
+	local codec = model.heroCodec(stream)
+	if codec ~= "" then
+		return codec
+	end
+	if type(statsMeta) == "table" and not blank(statsMeta.codec) then
+		return string.upper(tostring(statsMeta.codec))
+	end
+	return "—"
+end
+
+function model.encoderText(statsMeta)
+	if type(statsMeta) ~= "table" then
+		return "—"
+	end
+	if blank(statsMeta.encoder_backend) then
+		return "—"
+	end
+	local text = tostring(statsMeta.encoder_backend)
+	if not blank(statsMeta.gpu) then
+		text = text .. " · " .. tostring(statsMeta.gpu)
+	end
+	return text
+end
+
+function model.heroDetail(state, stream, statsMeta)
 	if state ~= "streaming" then
 		return ""
 	end
-	return model.heroCodec(stream)
+	return model.codecText(stream, statsMeta)
 end
 
 function model.captureModeStatus(output)
@@ -194,14 +245,32 @@ function model.sessionFacts(snap)
 	if s.state == "stopped" then
 		return {}
 	end
-	if model.sessionLive(s.state, s.sessions, s.games) and type(stream) == "table" then
+	if model.sessionLive(s.state, s.sessions, s.games) then
+		local live = type(stream) == "table" and stream or {}
+		local resolution = "—"
+		if live.width ~= nil or live.height ~= nil then
+			resolution = model.displayOrDash(live.width) .. " × " .. model.displayOrDash(live.height)
+		end
+		local fpsText = "—"
+		if live.fps ~= nil and tostring(live.fps) ~= "" then
+			fpsText = tostring(live.fps) .. " fps"
+		end
+		local bitrateText = "—"
+		if live.bitrate_kbps ~= nil then
+			bitrateText = model.mbps(live.bitrate_kbps) .. " Mbps"
+		end
 		local out = {
-			{ k = "Resolution", v = tostring(stream.width) .. " × " .. tostring(stream.height) },
-			{ k = "Frame rate", v = tostring(stream.fps) .. " fps" },
-			{ k = "Bitrate", v = model.mbps(stream.bitrate_kbps) .. " Mbps" },
+			{ k = "Resolution", v = resolution },
+			{ k = "Frame rate", v = fpsText },
+			{ k = "Bitrate", v = bitrateText },
+			{ k = "Encode", v = model.codecText(live, s.statsMeta) },
 		}
-		if toNumber(stream.time_to_first_frame_ms, 0) > 0 then
-			table.insert(out, { k = "First frame", v = tostring(stream.time_to_first_frame_ms) .. " ms" })
+		local encoder = model.encoderText(s.statsMeta)
+		if encoder ~= "—" then
+			table.insert(out, { k = "Encoder", v = encoder })
+		end
+		if toNumber(live.time_to_first_frame_ms, 0) > 0 then
+			table.insert(out, { k = "First frame", v = tostring(live.time_to_first_frame_ms) .. " ms" })
 		end
 		return out
 	end
@@ -402,10 +471,31 @@ function model.pillarMeter(history, key, current)
 	return ratio
 end
 
+local function stageIsEncode(stage, key)
+	if type(stage) ~= "table" then
+		return false
+	end
+	local name = stage.name or stage.stage
+	if blank(name) and type(key) == "string" then
+		name = key
+	end
+	return string.lower(tostring(name or "")) == "encode"
+end
+
 function model.encodeMs(statsSample)
-	local stages = statsSample and statsSample.stages or {}
-	for _, stage in ipairs(stages) do
-		if type(stage) == "table" and stage.name == "encode" then
+	if type(statsSample) ~= "table" then
+		return nil
+	end
+	local stages = statsSample.stages
+	if type(stages) ~= "table" then
+		return nil
+	end
+	local keyed = stages.encode or stages.Encode
+	if type(keyed) == "table" and keyed.p99_us ~= nil then
+		return toNumber(keyed.p99_us, 0) / 1000
+	end
+	for key, stage in pairs(stages) do
+		if stageIsEncode(stage, key) and type(stage) == "table" and stage.p99_us ~= nil then
 			return toNumber(stage.p99_us, 0) / 1000
 		end
 	end
@@ -416,7 +506,10 @@ function model.statsPillars(snap)
 	local s = snap or {}
 	local stream = s.stream
 	if type(stream) ~= "table" then
-		return {}
+		if not model.sessionLive(s.state, s.sessions, s.games) then
+			return {}
+		end
+		stream = {}
 	end
 	local target = toNumber(stream.bitrate_kbps, 0) / 1000
 	local fps = nil
@@ -646,16 +739,28 @@ function model.widgetBorder(snap)
 	return model.widgetColor(snap)
 end
 
-function model.widgetLogoPath(fileExists)
+local function firstExisting(paths, fileExists)
 	if type(fileExists) ~= "function" then
 		return nil
 	end
-	for _, rel in ipairs(model.LOGO_PATHS) do
+	for _, rel in ipairs(paths) do
 		if fileExists(rel) then
 			return rel
 		end
 	end
 	return nil
+end
+
+function model.widgetLogoPath(fileExists)
+	return firstExisting(model.MARK_PATHS, fileExists)
+end
+
+function model.panelLogoPath(fileExists)
+	local hit = firstExisting(model.LOGO_PATHS, fileExists)
+	if hit then
+		return hit
+	end
+	return model.LOGO_PATH
 end
 
 -- Count for the bar pending badge. Pin-pending Moonlight is needsYou but has

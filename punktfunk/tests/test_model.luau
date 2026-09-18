@@ -91,7 +91,25 @@ local live = model.sessionFacts({
 })
 check("live resolution", live[1].v == "1920 × 1080")
 check("live bitrate", live[3].v == "40.0 Mbps")
-check("live first frame", live[4].v == "18 ms")
+check("live encode missing", live[4].k == "Encode" and live[4].v == "—")
+check("live first frame", live[5].v == "18 ms")
+
+local liveCodec = model.sessionFacts({
+	state = "streaming",
+	sessions = 1,
+	stream = { width = 1920, height = 1080, fps = 120, bitrate_kbps = 40000, codec = "hevc" },
+	statsMeta = { encoder_backend = "nvenc", gpu = "RTX 4090" },
+})
+check("live encode codec", liveCodec[4].v == "HEVC")
+check("live encoder backend", liveCodec[5].k == "Encoder" and liveCodec[5].v == "nvenc · RTX 4090")
+
+local liveEmptyStream = model.sessionFacts({
+	state = "streaming",
+	sessions = 1,
+	stream = nil,
+})
+check("live nil stream still shows encode", liveEmptyStream[4].k == "Encode" and liveEmptyStream[4].v == "—")
+check("live nil stream bitrate dash", liveEmptyStream[3].v == "—")
 
 check("actions idle empty", #model.sessionActions(false, true) == 0)
 local stopOnly = model.sessionActions(true, false)
@@ -155,8 +173,17 @@ local pillars = model.statsPillars({
 check("pillar target", pillars[1].text == "40.0")
 check("pillar fps", pillars[2].text == "118")
 check("pillar encode", pillars[3].text == "2.3")
+check("encode map stages", model.encodeMs({ stages = { encode = { p99_us = 2000 } } }) == 2)
+local zeroBased = {}
+zeroBased[0] = { name = "encode", p99_us = 1000 }
+check("encode 0-based stages", model.encodeMs({ stages = zeroBased }) == 1)
+check("encode missing stages", model.encodeMs({ fps = 120 }) == nil)
+check("encode nil sample", model.encodeMs(nil) == nil)
 check("chart idle", #model.chartSeries(false) == 1)
 check("chart capture encode", model.chartSeries(true)[4].key == "encode")
+
+local streamingNoStream = model.statsPillars({ state = "streaming", sessions = 1 })
+check("pillars without stream still encode", streamingNoStream[3].label == "ENCODE" and streamingNoStream[3].text == "—")
 
 local graph = model.graphValues({ 1, 2, 3 })
 check("graph normalized lo", graph[1] == 0)
@@ -176,16 +203,25 @@ check("widget badge pin", model.widgetBadge({ pinPending = true }) == "1")
 check("widget badge idle", model.widgetBadge({ pending = 0 }) == nil)
 check("widget pip streaming", model.widgetShowPip({ state = "streaming" }) == true)
 check("widget pip idle", model.widgetShowPip({ state = "idle" }) == false)
-check("logo first hit", model.widgetLogoPath(function(path) return path == "punktfunk-logo.svg" end) == "punktfunk-logo.svg")
-check("logo assets fallback", model.widgetLogoPath(function(path) return path == "assets/punktfunk-logo.svg" end) == "assets/punktfunk-logo.svg")
+check("logo first hit", model.widgetLogoPath(function(path) return path == "assets/punktfunk-mark.svg" end) == "assets/punktfunk-mark.svg")
+check("logo assets fallback", model.widgetLogoPath(function(path) return path == "punktfunk-mark.svg" end) == "punktfunk-mark.svg")
 check("logo miss", model.widgetLogoPath(function() return false end) == nil)
-check("logo canonical path", model.LOGO_PATH == "punktfunk-logo.svg")
+check("logo canonical path", model.MARK_PATH == "assets/punktfunk-mark.svg")
+check("panel logo first hit", model.panelLogoPath(function(path) return path == "assets/punktfunk-logo.svg" end) == "assets/punktfunk-logo.svg")
+check("panel logo fallback", model.panelLogoPath(function() return false end) == "assets/punktfunk-logo.svg")
+check("panel logo size", model.PANEL_LOGO_WIDTH == 140 and model.PANEL_LOGO_HEIGHT == 72)
+check("widget mark size", model.WIDGET_MARK_SIZE == 16)
 check("widget fill pending", model.widgetFill({ pending = 1 }) == "error/0.22")
 check("widget fill streaming", model.widgetFill({ state = "streaming" }) == "primary/0.22")
 check("widget border streaming", model.widgetBorder({ state = "streaming" }) == "primary")
 
 check("hero codec streaming", model.heroDetail("streaming", { codec = "hevc" }) == "HEVC")
 check("hero codec idle empty", model.heroDetail("idle", { codec = "hevc" }) == "")
+check("hero codec streaming dash", model.heroDetail("streaming", {}) == "—")
+check("hero codec from meta", model.heroDetail("streaming", {}, { codec = "av1" }) == "AV1")
+check("encoder empty dash", model.encoderText(nil) == "—")
+check("encoder blank dash", model.encoderText({ encoder_backend = "" }) == "—")
+check("encoder backend", model.encoderText({ encoder_backend = "vaapi", gpu = "Arc" }) == "vaapi · Arc")
 check("hero busy start", model.heroMeta("stopped", "", { hostBusy = true, desiredRunning = true }) == "Starting the host")
 check("hero busy stop", model.heroMeta("idle", "", { hostBusy = true, desiredRunning = false }) == "Stopping the host")
 

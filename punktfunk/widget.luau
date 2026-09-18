@@ -1,10 +1,8 @@
 --!nonstrict
--- Bar widget: Punktfunk brand mark with state chrome around it.
+-- Bar widget: Punktfunk lens mark with state chrome around it.
 --
--- TODO(bc-e0bdb3f3): `punktfunk-logo.svg` is vendored at plugin-relative
--- `punktfunk-logo.svg` and `assets/punktfunk-logo.svg`. Use it as the mark
--- and overlay pending badge + semantic fill/border. Glyph is missing-file
--- fallback only.
+-- The bar uses assets/punktfunk-mark.svg (lens only, no wordmark). Overlay
+-- pending badge + semantic fill/border wrap it. Glyph is missing-file fallback.
 -- Click opens the panel (Pair tab when something is waiting). Right-click
 -- stops a live session, or opens the web console when nothing is streaming.
 
@@ -44,7 +42,8 @@ else
 		widgetLogoPath = function()
 			return nil
 		end,
-		LOGO_PATH = "punktfunk-logo.svg",
+		MARK_PATH = "assets/punktfunk-mark.svg",
+		WIDGET_MARK_SIZE = 16,
 		widgetBadge = function(snap)
 			if type(snap) == "table" and (tonumber(snap.pending) or 0) > 0 then
 				return tostring(tonumber(snap.pending) or 0)
@@ -99,14 +98,15 @@ local function fileExists(path)
 	return noctalia.fileExists(path) == true
 end
 
--- Logo stays the brand mark. Pin-mismatch / pending / streaming are overlays
--- around it, never a replacement glyph (glyph is only the missing-file fallback).
+-- Lens mark only. Pin-mismatch / pending / streaming are overlays around it,
+-- never a replacement glyph (glyph is only the missing-file fallback).
 local function brandMark(color)
 	local logo = model.widgetLogoPath and model.widgetLogoPath(fileExists) or nil
+	local size = model.WIDGET_MARK_SIZE or 16
 	if logo then
-		return ui.image({ path = logo, width = 16, height = 16, fit = "contain" })
+		return ui.image({ path = logo, width = size, height = size, fit = "contain" })
 	end
-	return ui.glyph({ name = model.widgetGlyph(snap), size = 16, color = color })
+	return ui.glyph({ name = model.widgetGlyph(snap), size = size, color = color })
 end
 
 local function overlayChildren(color)
