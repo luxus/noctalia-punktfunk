@@ -55,8 +55,8 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 | Devices: both planes, unpair confirm | Native + GameStream; `y` / `c` | Same | full | |
 | Devices: change `access_level` | Read-only | `ctl access <fp> <full\|controller\|view>` chips on native rows | noctalia-only | |
 | Devices: rename | No UI | `ctl rename <fp> <name>` on native rows | noctalia-only | |
-| Display: Dedicated vs This screen | helper `mode` | Writes `display-settings.json` / `host.env`, `try-restart`; **must not** call `punktfunk-omarchy` | full* | |
-| Display: HDR / 4:4:4 **erlaubt** | none | `host.env` `PUNKTFUNK_10BIT` / `PUNKTFUNK_444` (default on), `try-restart`. Next session; host only allows, client still picks. Distinct from live **verbunden** rows. | noctalia-only | |
+| Display: Dedicated vs This screen | helper `mode` | Writes `display-settings.json` / `host.env`, `try-restart`; **must not** call `punktfunk-omarchy`. File writes until host `ctl` can mutate settings (see §C). | full* | |
+| Display: HDR / 4:4:4 **erlaubt** | none | `host.env` `PUNKTFUNK_10BIT` / `PUNKTFUNK_444` (default on), `try-restart`. Next session; host only allows, client still picks. Distinct from live **verbunden** rows. File writes until host `ctl` can mutate settings (see §C). | noctalia-only | |
 | Display: policy + presets | Same | Same | full | |
 | Display: live / lingered heads listed | Deliberately not listed | Same omission | full (intentional) | |
 | Display: release kept heads | unused (docs tell you to run ctl) | Display-tab **Release kept displays** → `ctl display release` (no slot = all kept). Copy: never touches an actively streaming head. | noctalia-only | |
@@ -100,6 +100,8 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 | `display release [SLOT]` | no | **yes** (no slot = all kept) | |
 | `stats` / `stats record start\|stop` | yes | yes | |
 
+No general settings / `host.env` verb (`ctl env get|set|unset` or equivalent). Wanted upstream; this plugin does not invent a wrapper. See §C.
+
 ### Watch event kinds
 
 Filter: `pairing.*,stream.*,session.*,host.*`.
@@ -138,6 +140,15 @@ Keep using `punktfunk-host ctl` only.
 - Idle-guard / `omarchy-toggle-idle` — not `ctl`; needs a Noctalia idle inhibitor.
 - `unpair --all` — mass-destructive; leave unused.
 - `watch --since`, `pair arm --fingerprint/--preset`, `approve --name/--preset`, `game.*` subscription, LensMark canvas, phrase fade.
+- Host settings / `host.env` via `ctl` — missing upstream; plugin writes files until it exists. See below.
+
+### Upstream FR (`luxus/punktfunk`): host settings via `ctl`
+
+**Works today.** After any `host.env` edit (plugin or hand), `systemctl --user try-restart punktfunk-host.service` reloads it. The plugin already does this for capture mode and `PUNKTFUNK_10BIT` / `PUNKTFUNK_444`. Restart is fine; the gap is *how* settings are mutated.
+
+**Missing on the host.** No `ctl` verb reads or writes general host settings / `host.env` keys — no `ctl env get|set|unset` or equivalent. This plugin therefore **writes** `~/.config/punktfunk/host.env` and `display-settings.json` for Dedicated/This screen and HDR/4:4:4 **erlaubt** gates. Same file contract Omarchy’s helper used; file-based, not `punktfunk-omarchy`.
+
+**Wanted** (do not invent a wrapper here): settings live in a host-managed store (console + ctl). Plugin only calls ctl. **No plugin-owned `host.env` writes.** Operators need not maintain a `host.env` for day-to-day toggles.
 
 ---
 
