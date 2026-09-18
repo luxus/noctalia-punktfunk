@@ -61,6 +61,8 @@ class HostBoundaryTests(unittest.TestCase):
             '"display"',
             '"stats"',
             "capture-mode",
+            "hdr-allowed",
+            "chroma-allowed",
             '"access"',
             '"rename"',
             '"release"',
@@ -73,7 +75,18 @@ class HostBoundaryTests(unittest.TestCase):
         self.assertIn("Unpair", panel)
         self.assertIn("Dedicated", panel)
         self.assertIn("This screen", panel)
+        self.assertIn("HDR erlaubt", panel)
+        self.assertIn("4:4:4 erlaubt", panel)
+        self.assertIn("hdr-allowed", panel)
+        self.assertIn("chroma-allowed", panel)
+        self.assertIn("Erlaubt", panel)
+        self.assertIn("verbunden", panel)
         self.assertIn("Stop the session", model)
+        self.assertIn("HDR (verbunden)", model)
+        self.assertIn("Chroma (verbunden)", model)
+        self.assertIn("PUNKTFUNK_10BIT", (PLUGIN / "ctl.luau").read_text())
+        self.assertIn("PUNKTFUNK_444", (PLUGIN / "ctl.luau").read_text())
+        self.assertIn("hostEnvSet", (PLUGIN / "service.luau").read_text())
         self.assertIn("function tree()", panel)
         self.assertNotIn('error("Punktfunk', panel)
         self.assertIn("Release kept displays", panel)
@@ -104,6 +117,9 @@ class HostBoundaryTests(unittest.TestCase):
         ctl = (PLUGIN / "ctl.luau").read_text()
         self.assertIn("display-settings.json", ctl)
         self.assertIn("list-monitors", ctl)
+        self.assertIn("PUNKTFUNK_10BIT", ctl)
+        self.assertIn("PUNKTFUNK_444", ctl)
+        self.assertIn("hostEnvSet", ctl)
 
 
 if __name__ == "__main__":

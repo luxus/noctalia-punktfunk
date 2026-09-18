@@ -166,11 +166,130 @@ function model.encoderText(statsMeta)
 	return text
 end
 
-function model.heroDetail(state, stream, statsMeta)
+local function pushTable(out, obj)
+	if type(obj) == "table" then
+		table.insert(out, obj)
+	end
+end
+
+-- Tables that may carry live stream HDR / chroma (status, stats, stream snapshot).
+function model.streamSignalTables(snap)
+	local s = snap or {}
+	local out = {}
+	pushTable(out, s.stream)
+	pushTable(out, s.sessionMode)
+	pushTable(out, s.statsMeta)
+	pushTable(out, s.statsSample)
+	if type(s.stream) == "table" then
+		pushTable(out, s.stream.stream)
+		pushTable(out, s.stream.session)
+	end
+	if type(s.sessionMode) == "table" then
+		pushTable(out, s.sessionMode.stream)
+	end
+	if type(s.hostSessions) == "table" then
+		for _, row in ipairs(s.hostSessions) do
+			pushTable(out, row)
+		end
+	end
+	return out
+end
+
+local function firstPresent(tables, keys)
+	for _, obj in ipairs(tables or {}) do
+		for _, key in ipairs(keys) do
+			local value = obj[key]
+			if value ~= nil then
+				return value
+			end
+		end
+	end
+	return nil
+end
+
+-- Live session only (verbunden/aktiv). Missing → "—", never hide the row.
+function model.liveHdrText(snap)
+	local value = firstPresent(model.streamSignalTables(snap), { "hdr", "is_hdr", "hdr10" })
+	if value == nil then
+		return "—"
+	end
+	if value == true or value == 1 then
+		return "ja"
+	end
+	if value == false or value == 0 then
+		return "nein"
+	end
+	local lower = string.lower(tostring(value))
+	if lower == "true" or lower == "yes" or lower == "ja" or lower == "1" or lower == "hdr" then
+		return "ja"
+	end
+	if lower == "false" or lower == "no" or lower == "nein" or lower == "0" or lower == "sdr" then
+		return "nein"
+	end
+	return "—"
+end
+
+function model.normalizeChroma(value)
+	if value == nil then
+		return nil
+	end
+	if value == true then
+		return "4:4:4"
+	end
+	if value == false then
+		return "4:2:0"
+	end
+	local s = string.lower(tostring(value))
+	s = string.gsub(s, "%s+", "")
+	if s == "4:4:4" or s == "444" or s == "yuv444" or s == "yuv4:4:4" then
+		return "4:4:4"
+	end
+	if s == "4:2:0" or s == "420" or s == "yuv420" or s == "yuv4:2:0" then
+		return "4:2:0"
+	end
+	return nil
+end
+
+function model.liveChromaText(snap)
+	local tables = model.streamSignalTables(snap)
+	local chroma = model.normalizeChroma(firstPresent(tables, {
+		"chroma",
+		"chroma_subsampling",
+		"subsampling",
+		"chroma_format",
+	}))
+	if chroma then
+		return chroma
+	end
+	local flag = firstPresent(tables, { "chroma_444", "is_444" })
+	if flag == nil then
+		for _, obj in ipairs(tables) do
+			if obj["444"] ~= nil then
+				flag = obj["444"]
+				break
+			end
+		end
+	end
+	return model.normalizeChroma(flag) or "—"
+end
+
+function model.heroDetail(state, stream, statsMeta, snap)
 	if state ~= "streaming" then
 		return ""
 	end
+	local live = snap
+	if type(live) ~= "table" then
+		live = { stream = stream, statsMeta = statsMeta }
+	end
 	return model.codecText(stream, statsMeta)
+		.. " · HDR "
+		.. model.liveHdrText(live)
+		.. " · "
+		.. model.liveChromaText(live)
+end
+
+function model.policyAllowHint()
+	return "Gilt ab der nächsten Sitzung. Der Host erlaubt nur; der Client wählt."
 end
 
 function model.captureModeStatus(output)
@@ -264,6 +383,8 @@ function model.sessionFacts(snap)
 			{ k = "Frame rate", v = fpsText },
 			{ k = "Bitrate", v = bitrateText },
 			{ k = "Encode", v = model.codecText(live, s.statsMeta) },
+			{ k = "HDR (verbunden)", v = model.liveHdrText(s) },
+			{ k = "Chroma (verbunden)", v = model.liveChromaText(s) },
 		}
 		local encoder = model.encoderText(s.statsMeta)
 		if encoder ~= "—" then
@@ -664,6 +785,9 @@ function model.defaultSnap()
 		displayPresets = {},
 		customPresets = {},
 		captureMode = "dedicated",
+		hdrAllowed = true,
+		chroma444Allowed = true,
+		hostSessions = {},
 		summary = {},
 		stream = nil,
 		sessionMode = nil,

@@ -9,6 +9,7 @@
 - Stream start/stop toasts from `stream.*` watch kinds.
 - Vendor official `punktfunk-logo.svg` (and `assets/punktfunk-logo.svg`) as the bar and panel mark. Pending-count badge, streaming pip, and fill/border wrap it; glyph is the missing-file fallback.
 - Hero shows the live codec; host toggle is busy for 1.5s until the snapshot settles.
+- Display: **HDR erlaubt** / **4:4:4 erlaubt** write `PUNKTFUNK_10BIT` / `PUNKTFUNK_444` in `host.env` (next session; client still picks). Overview, hero and Stats show live **HDR (verbunden)** / **Chroma (verbunden)** from `ctl status`/`stats`/stream (`ja`/`nein`/`4:4:4`/`4:2:0`, or `—`).
 - Quote `ctl watch` kinds for `runStream` (shell string; `*` must not glob).
 - Re-arm a dead watcher with `processMatches` and a 15s backoff.
 - Drop `Return` / `j` / `k` from panel `capture_keys` so the Moonlight PIN field keeps Enter.

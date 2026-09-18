@@ -161,6 +161,90 @@ function ctl.stripCapturePin(text)
 	return table.concat(kept, "\n") .. "\n"
 end
 
+-- Host policy gates in host.env (take effect next session). Default on.
+-- 0 / false / off / no forces SDR or 4:2:0; the client still picks per session.
+ctl.ENV_10BIT = "PUNKTFUNK_10BIT"
+ctl.ENV_444 = "PUNKTFUNK_444"
+
+local function envAssignment(line, key)
+	if type(line) ~= "string" or type(key) ~= "string" or key == "" then
+		return nil, false
+	end
+	local trimmed = string.gsub(line, "^%s+", "")
+	if string.sub(trimmed, 1, 1) == "#" then
+		return nil, false
+	end
+	local prefix = key .. "="
+	if string.sub(trimmed, 1, #prefix) ~= prefix then
+		return nil, false
+	end
+	local value = string.sub(trimmed, #prefix + 1)
+	value = string.gsub(value, "^%s+", "")
+	value = string.gsub(value, "%s+$", "")
+	value = string.gsub(value, "^['\"]", "")
+	value = string.gsub(value, "['\"]$", "")
+	return value, true
+end
+
+function ctl.hostEnvValue(text, key)
+	if type(text) ~= "string" then
+		return nil
+	end
+	local found = nil
+	local any = false
+	for line in string.gmatch(text .. "\n", "(.-)\n") do
+		local value, matched = envAssignment(line, key)
+		if matched then
+			found = value
+			any = true
+		end
+	end
+	if not any then
+		return nil
+	end
+	return found
+end
+
+function ctl.hostEnvBool(text, key, defaultOn)
+	local value = ctl.hostEnvValue(text, key)
+	if value == nil or value == "" then
+		return defaultOn ~= false
+	end
+	local lower = string.lower(value)
+	if lower == "0" or lower == "false" or lower == "off" or lower == "no" then
+		return false
+	end
+	return true
+end
+
+function ctl.hostEnvSet(text, key, value)
+	local wanted = tostring(key) .. "=" .. tostring(value)
+	local src = type(text) == "string" and text or ""
+	local kept = {}
+	local found = false
+	for line in string.gmatch(src .. "\n", "(.-)\n") do
+		local _, matched = envAssignment(line, key)
+		if matched then
+			if not found then
+				table.insert(kept, wanted)
+				found = true
+			end
+		else
+			table.insert(kept, line)
+		end
+	end
+	if not found then
+		while #kept > 0 and kept[#kept] == "" do
+			table.remove(kept)
+		end
+		table.insert(kept, wanted)
+	end
+	if #kept == 0 then
+		return wanted .. "\n"
+	end
+	return table.concat(kept, "\n") .. "\n"
+end
+
 function ctl.captureModeFromConfig(displaySettings, hostEnvText)
 	if ctl.hostEnvHasCapturePin(hostEnvText) then
 		return "mirror"

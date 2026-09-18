@@ -87,6 +87,10 @@ class FixtureTests(unittest.TestCase):
         self.assertIn("ctl access", parity)
         self.assertIn("display release", parity)
         self.assertIn("punktfunk-logo.svg", parity)
+        self.assertIn("PUNKTFUNK_10BIT", parity)
+        self.assertIn("PUNKTFUNK_444", parity)
+        self.assertIn("erlaubt", parity.lower())
+        self.assertIn("verbunden", parity.lower())
         self.assertIn("title+body only", parity)
         self.assertIn("no actions", parity.lower())
 
