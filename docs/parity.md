@@ -36,16 +36,16 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 | Tab badge: Pair · N | `tabLabel(id, pending)` | Same | full | |
 | Waiting pair focuses Pair tab | `needsYou` → pair | Same, plus `focusPair` from the pairing toast / bar click | full | |
 | Hero: title / rotating phrases / host toggle | phrases + toggle; 2800 ms fade | Same phrases and toggle; phrase swap without fade | partial | Animation is Omarchy-only (skipped). |
-| Hero: live codec | `PanelHero.detail` = `stream.codec` | `model.heroDetail` in the header (`codec · HDR ja\|nein\|— · chroma`, `—` when streaming with no codec) | full | |
-| Overview: live facts | Resolution, fps, bitrate, first-frame | Same plus **Encode** (`stream.codec`, else `—`), **HDR (verbunden)** / **Chroma (verbunden)** (`ja`/`nein`/`4:4:4`/`4:2:0`, else `—`; never omitted), Encoder when `statsMeta.encoder_backend` is set | full | |
+| Hero: live codec | `PanelHero.detail` = `stream.codec` | `model.heroDetail` in the header (`codec · HDR yes\|no\|— · chroma`, `—` when streaming with no codec) | full | |
+| Overview: live facts | Resolution, fps, bitrate, first-frame | Same plus **Codec** (`stream.codec`, else `—`), **HDR (connected)** / **Chroma (connected)** (`yes`/`no`/`4:4:4`/`4:2:0`, else `—`; never omitted), Encoder when `statsMeta.encoder_backend` is set | full | |
 | Host start / stop | `systemctl --user start\|stop`; optimistic `haveDesired`; 1.5 s `settle` busy | Same unit, optimistic flag, `hostBusy` + `ctl.HOST_SETTLE_MS` (1500) disables the toggle until snapshot | full | |
 | Certificate-mismatch banner | Panel text | Same wording in `panel.tree()` | full | |
 | Last ctl error line | `lastError` | Same | full | |
 | Overview: idle facts | Devices paired / Pairing / Host version | Same | full | |
 | Overview: `summary.conflicts[]` | Unused | Panel banner (`model.conflictBanner`) on every tab, including stopped host | noctalia-only | e.g. `Sunshine (running) is also bound on this box`. |
 | Overview: desktop vs launched game | Same copy | Same | full | |
-| Stop the session / End the game | `ctl stop-session` / `end-game` | Same | full | |
-| Overview pillars + target sparkline | 2 s poll on Overview/Stats | Same (`ctl.shouldPollStats`) | full | |
+| Stop the session / End the game | `ctl stop-session` / `end-game` | Same; compact `sm` buttons in a row (not full-width) | full | |
+| Overview pillars + target sparkline | 2 s poll on Overview/Stats | Same (`ctl.shouldPollStats`). **ENCODE** pillar only while `stats record` is armed | full | |
 | Pair: incoming Accept / Reject | `ctl approve\|deny <id>` | Same, by id, never “newest” | full | |
 | Pair: extra pending rows | remaining Accept / Reject | Same | full | |
 | Pair: verify PIN / arm toggle / Moonlight PIN | Same ctl verbs | Same | full | |
@@ -56,11 +56,12 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 | Devices: change `access_level` | Read-only | `ctl access <fp> <full\|controller\|view>` chips on native rows | noctalia-only | |
 | Devices: rename | No UI | `ctl rename <fp> <name>` on native rows | noctalia-only | |
 | Display: Dedicated vs This screen | helper `mode` | Writes `display-settings.json` / `host.env`, `try-restart`; **must not** call `punktfunk-omarchy`. File writes until host `ctl` can mutate settings (see §C). | full* | |
-| Display: HDR / 4:4:4 **erlaubt** | none | `host.env` `PUNKTFUNK_10BIT` / `PUNKTFUNK_444` (default on), `try-restart`. Next session; host only allows, client still picks. Distinct from live **verbunden** rows. File writes until host `ctl` can mutate settings (see §C). | noctalia-only | |
+| Display: HDR / 4:4:4 **allowed** | none | `host.env` `PUNKTFUNK_10BIT` / `PUNKTFUNK_444` (default on), `try-restart`. Next session; host only allows, client still picks. Distinct from live **connected** rows. File writes until host `ctl` can mutate settings (see §C). | noctalia-only | |
 | Display: policy + presets | Same | Same | full | |
 | Display: live / lingered heads listed | Deliberately not listed | Same omission | full (intentional) | |
 | Display: release kept heads | unused (docs tell you to run ctl) | Display-tab **Release kept displays** → `ctl display release` (no slot = all kept). Copy: never touches an actively streaming head. | noctalia-only | |
-| Stats: stream line, pillars, encoder, capture | Same | Same, plus live **HDR (verbunden)** / **Chroma (verbunden)** on the stream line | full | |
+| Stats: stream line, pillars, encoder, capture | Same | Same, plus live **HDR (connected)** / **Chroma (connected)** on the stream line. Encode timings hidden unless recording; **Recording performance…** + Stop while armed | full | |
+| Stats: download host logs | none (console live logs over HTTPS) | **Download** writes `journalctl --user -u punktfunk-host.service` to a local file and `xdg-open`s the folder. No `ctl logs` verb (see §C). | noctalia-only | |
 | Keyboard: `1`–`5`, `h`/`l` tabs | Same | Same | full | |
 | Keyboard: `j`/`k` cursor, Enter activate | Omarchy chrome | Intentionally not captured (PIN field) | missing | Deferred. Click path is complete. |
 | Keyboard: `x` deny focused pair; Esc closes | `x` on incoming/pending | `x` denies incoming only. Esc is host close | partial | Deferred (PIN / cursor conflict). |
@@ -99,6 +100,7 @@ Rows are user-visible capabilities from the Omarchy bar plugin and the hooks `pu
 | `display` / `display preset` | yes | yes | live heads unused in UI by design |
 | `display release [SLOT]` | no | **yes** (no slot = all kept) | |
 | `stats` / `stats record start\|stop` | yes | yes | |
+| `logs` / `journal` / export | no | **no ctl verb** — Stats Download uses local `journalctl` (see §C) | missing on host | |
 
 No general settings / `host.env` verb (`ctl env get|set|unset` or equivalent). Wanted upstream; this plugin does not invent a wrapper. See §C.
 
@@ -132,7 +134,9 @@ Keep using `punktfunk-host ctl` only.
 | 5 | Stream start/stop toasts | **Shipped.** From `stream.*` watch kinds. |
 | — | Bar pending badge / clearer streaming state | **Shipped.** Badge + streaming pip + fill/border **around** vendored `assets/punktfunk-mark.svg` (lens only). Panel hero uses the full `punktfunk-logo.svg` lockup. |
 | — | Hero live codec + host-toggle busy/settle | **Shipped.** |
-| — | Display HDR/4:4:4 **erlaubt** + Overview live **verbunden** HDR/chroma | **Shipped.** `host.env` policy gates; live rows from `ctl status`/`stats`/stream (`—` if missing). `hdr-probe` left unwired (multi-line Linux diagnostic, must not block the toggles). |
+| — | Display HDR/4:4:4 **allowed** + Overview live **connected** HDR/chroma | **Shipped.** `host.env` policy gates; live rows from `ctl status`/`stats`/stream (`—` if missing). `hdr-probe` left unwired (multi-line Linux diagnostic, must not block the toggles). |
+| — | Encode timings only while `stats record` is armed | **Shipped.** ENCODE pillar + Encode p99 hidden otherwise; recording banner with Stop. |
+| — | Host log download from the panel | **Shipped fallback.** No `ctl logs` verb. Local `journalctl --user -u punktfunk-host.service` → file + folder. |
 
 ### Deferred (not trivial / out of scope)
 
@@ -141,14 +145,25 @@ Keep using `punktfunk-host ctl` only.
 - `unpair --all` — mass-destructive; leave unused.
 - `watch --since`, `pair arm --fingerprint/--preset`, `approve --name/--preset`, `game.*` subscription, LensMark canvas, phrase fade.
 - Host settings / `host.env` via `ctl` — missing upstream; plugin writes files until it exists. See below.
+- Host logs via `ctl` — missing upstream; Stats Download uses local `journalctl`. See below.
 
 ### Upstream FR (`luxus/punktfunk`): host settings via `ctl`
 
 **Works today.** After any `host.env` edit (plugin or hand), `systemctl --user try-restart punktfunk-host.service` reloads it. The plugin already does this for capture mode and `PUNKTFUNK_10BIT` / `PUNKTFUNK_444`. Restart is fine; the gap is *how* settings are mutated.
 
-**Missing on the host.** No `ctl` verb reads or writes general host settings / `host.env` keys — no `ctl env get|set|unset` or equivalent. This plugin therefore **writes** `~/.config/punktfunk/host.env` and `display-settings.json` for Dedicated/This screen and HDR/4:4:4 **erlaubt** gates. Same file contract Omarchy’s helper used; file-based, not `punktfunk-omarchy`.
+**Missing on the host.** No `ctl` verb reads or writes general host settings / `host.env` keys — no `ctl env get|set|unset` or equivalent. This plugin therefore **writes** `~/.config/punktfunk/host.env` and `display-settings.json` for Dedicated/This screen and HDR/4:4:4 **allowed** gates. Same file contract Omarchy’s helper used; file-based, not `punktfunk-omarchy`.
 
 **Wanted** (do not invent a wrapper here): settings live in a host-managed store (console + ctl). Plugin only calls ctl. **No plugin-owned `host.env` writes.** Operators need not maintain a `host.env` for day-to-day toggles.
+
+### Upstream FR (`luxus/punktfunk`): host logs via `ctl`
+
+**Works today.** The web console streams live host logs over the management HTTPS API (token). `ctl` usage (status, pairing, devices, display, `stats` / `stats record`, watch, `console-url`) has no `logs` / `journal` / export verb.
+
+**Missing on the host.** No `ctl logs` (or equivalent) that prints or writes the host log without HTTPS.
+
+**Fallback shipped.** Stats **Download** runs `journalctl --user -u punktfunk-host.service --no-pager -n 5000 -o short-iso` on this machine, writes `~/Downloads/punktfunk-host-<stamp>.log` (or `$XDG_DOWNLOAD_DIR` / `$XDG_RUNTIME_DIR` / `/tmp`), and opens the folder with `xdg-open`. Host-local; no operator token.
+
+**Wanted** (do not invent HTTPS/mgmt-token calls here): `ctl logs` or `ctl journal` that dumps the host log to stdout / a path. Plugin would then spawn that argv only.
 
 ---
 

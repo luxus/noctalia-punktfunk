@@ -91,9 +91,9 @@ local live = model.sessionFacts({
 })
 check("live resolution", live[1].v == "1920 × 1080")
 check("live bitrate", live[3].v == "40.0 Mbps")
-check("live encode missing", live[4].k == "Encode" and live[4].v == "—")
-check("live hdr missing dash", live[5].k == "HDR (verbunden)" and live[5].v == "—")
-check("live chroma missing dash", live[6].k == "Chroma (verbunden)" and live[6].v == "—")
+check("live encode missing", live[4].k == "Codec" and live[4].v == "—")
+check("live hdr missing dash", live[5].k == "HDR (connected)" and live[5].v == "—")
+check("live chroma missing dash", live[6].k == "Chroma (connected)" and live[6].v == "—")
 check("live first frame", live[7].v == "18 ms")
 
 local liveCodec = model.sessionFacts({
@@ -103,7 +103,7 @@ local liveCodec = model.sessionFacts({
 	statsMeta = { encoder_backend = "nvenc", gpu = "RTX 4090" },
 })
 check("live encode codec", liveCodec[4].v == "HEVC")
-check("live hdr still dashed", liveCodec[5].k == "HDR (verbunden)" and liveCodec[5].v == "—")
+check("live hdr still dashed", liveCodec[5].k == "HDR (connected)" and liveCodec[5].v == "—")
 check("live chroma still dashed", liveCodec[6].v == "—")
 check("live encoder backend", liveCodec[7].k == "Encoder" and liveCodec[7].v == "nvenc · RTX 4090")
 
@@ -112,9 +112,9 @@ local liveEmptyStream = model.sessionFacts({
 	sessions = 1,
 	stream = nil,
 })
-check("live nil stream still shows encode", liveEmptyStream[4].k == "Encode" and liveEmptyStream[4].v == "—")
-check("live nil stream hdr row", liveEmptyStream[5].k == "HDR (verbunden)" and liveEmptyStream[5].v == "—")
-check("live nil stream chroma row", liveEmptyStream[6].k == "Chroma (verbunden)" and liveEmptyStream[6].v == "—")
+check("live nil stream still shows codec", liveEmptyStream[4].k == "Codec" and liveEmptyStream[4].v == "—")
+check("live nil stream hdr row", liveEmptyStream[5].k == "HDR (connected)" and liveEmptyStream[5].v == "—")
+check("live nil stream chroma row", liveEmptyStream[6].k == "Chroma (connected)" and liveEmptyStream[6].v == "—")
 check("live nil stream bitrate dash", liveEmptyStream[3].v == "—")
 
 check("actions idle empty", #model.sessionActions(false, true) == 0)
@@ -171,8 +171,17 @@ check("policy topology", policy[1].v == "extend")
 check("policy max", policy[4].v == "2")
 
 check("pillars empty", #model.statsPillars({}) == 0)
+local pillarsIdle = model.statsPillars({
+	stream = { bitrate_kbps = 40000, fps = 120 },
+	statsSample = { fps = 118.4, stages = { { name = "encode", p99_us = 2321 } } },
+	history = { { target = 40, fps = 118.4, encode = 2.321 } },
+})
+check("pillar target without record", pillarsIdle[1].text == "40.0")
+check("pillar fps without record", pillarsIdle[2].text == "118")
+check("encode hidden until record", #pillarsIdle == 2)
 local pillars = model.statsPillars({
 	stream = { bitrate_kbps = 40000, fps = 120 },
+	captureArmed = true,
 	statsSample = { fps = 118.4, stages = { { name = "encode", p99_us = 2321 } } },
 	history = { { target = 40, fps = 118.4, encode = 2.321 } },
 })
@@ -188,8 +197,12 @@ check("encode nil sample", model.encodeMs(nil) == nil)
 check("chart idle", #model.chartSeries(false) == 1)
 check("chart capture encode", model.chartSeries(true)[4].key == "encode")
 
-local streamingNoStream = model.statsPillars({ state = "streaming", sessions = 1 })
-check("pillars without stream still encode", streamingNoStream[3].label == "ENCODE" and streamingNoStream[3].text == "—")
+local streamingNoStream = model.statsPillars({ state = "streaming", sessions = 1, captureArmed = true })
+check("pillars recording without stream still encode", streamingNoStream[3].label == "ENCODE" and streamingNoStream[3].text == "—")
+check("show encode ui armed", model.showEncodeUi({ captureArmed = true }) == true)
+check("show encode ui idle", model.showEncodeUi({ captureArmed = false }) == false)
+check("recording label", model.recordingLabel() == "Recording performance…")
+check("capture recording", model.captureRecording({ captureArmed = true }) == true)
 
 local graph = model.graphValues({ 1, 2, 3 })
 check("graph normalized lo", graph[1] == 0)
@@ -225,16 +238,18 @@ check("hero codec streaming", model.heroDetail("streaming", { codec = "hevc" }) 
 check("hero codec idle empty", model.heroDetail("idle", { codec = "hevc" }) == "")
 check("hero codec streaming dash", model.heroDetail("streaming", {}) == "— · HDR — · —")
 check("hero codec from meta", model.heroDetail("streaming", {}, { codec = "av1" }) == "AV1 · HDR — · —")
-check("hero live hdr ja", model.heroDetail("streaming", { codec = "hevc", hdr = true, chroma = "4:4:4" }) == "HEVC · HDR ja · 4:4:4")
-check("hero live hdr nein", model.heroDetail("streaming", { codec = "hevc", hdr = false, chroma = "4:2:0" }) == "HEVC · HDR nein · 4:2:0")
-check("live hdr from sessions", model.liveHdrText({ hostSessions = { { hdr = true } } }) == "ja")
-check("live hdr false", model.liveHdrText({ stream = { hdr = false } }) == "nein")
+check("hero live hdr yes", model.heroDetail("streaming", { codec = "hevc", hdr = true, chroma = "4:4:4" }) == "HEVC · HDR yes · 4:4:4")
+check("hero live hdr no", model.heroDetail("streaming", { codec = "hevc", hdr = false, chroma = "4:2:0" }) == "HEVC · HDR no · 4:2:0")
+check("live hdr from sessions", model.liveHdrText({ hostSessions = { { hdr = true } } }) == "yes")
+check("live hdr false", model.liveHdrText({ stream = { hdr = false } }) == "no")
+check("live hdr ja alias", model.liveHdrText({ stream = { hdr = "ja" } }) == "yes")
+check("live hdr nein alias", model.liveHdrText({ stream = { hdr = "nein" } }) == "no")
 check("live hdr missing", model.liveHdrText({ stream = { codec = "hevc" } }) == "—")
 check("live chroma 444", model.liveChromaText({ stream = { chroma = "444" } }) == "4:4:4")
 check("live chroma 420 from stats", model.liveChromaText({ statsMeta = { chroma_subsampling = "4:2:0" } }) == "4:2:0")
 check("live chroma missing", model.liveChromaText({}) == "—")
-check("policy allow hint next session", model.policyAllowHint():find("nächsten Sitzung", 1, true) ~= nil)
-check("policy allow hint client picks", model.policyAllowHint():find("Client wählt", 1, true) ~= nil)
+check("policy allow hint next session", model.policyAllowHint():find("next session", 1, true) ~= nil)
+check("policy allow hint client picks", model.policyAllowHint():find("client chooses", 1, true) ~= nil)
 check("encoder empty dash", model.encoderText(nil) == "—")
 check("encoder blank dash", model.encoderText({ encoder_backend = "" }) == "—")
 check("encoder backend", model.encoderText({ encoder_backend = "vaapi", gpu = "Arc" }) == "vaapi · Arc")

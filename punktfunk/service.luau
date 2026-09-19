@@ -148,6 +148,34 @@ ctl = loadModule("./ctl.luau", {
 	xdgOpenArgv = function(url)
 		return { "xdg-open", url }
 	end,
+	journalExportArgv = function()
+		return { "journalctl", "--user", "-u", "punktfunk-host.service", "--no-pager", "-n", "5000", "-o", "short-iso" }
+	end,
+	logExportDir = function(xdgDownload, home, runtimeDir)
+		if type(xdgDownload) == "string" and xdgDownload ~= "" then
+			return xdgDownload
+		end
+		if type(home) == "string" and home ~= "" then
+			return home .. "/Downloads"
+		end
+		if type(runtimeDir) == "string" and runtimeDir ~= "" then
+			return runtimeDir
+		end
+		return "/tmp"
+	end,
+	logExportPath = function(dir, stamp)
+		return tostring(dir or "/tmp") .. "/punktfunk-host-" .. tostring(stamp or "log") .. ".log"
+	end,
+	logExportHeader = function(stamp)
+		return "# Punktfunk host journal\n# exported " .. tostring(stamp or "") .. "\n\n"
+	end,
+	parentDir = function(path)
+		if type(path) ~= "string" then
+			return nil
+		end
+		return string.match(path, "^(.*)/[^/]+$")
+	end,
+	HOST_JOURNAL_UNIT = "punktfunk-host.service",
 	shouldPollStats = function()
 		return false
 	end,
@@ -591,6 +619,44 @@ local function openConsole()
 	end)
 end
 
+-- Host ctl has no logs verb. Export the user journal for this unit, write a
+-- local file, and open the folder. Stays on this machine; no token.
+local function exportLogs()
+	local stamp = os.date("%Y%m%d-%H%M%S")
+	local xdgDownload = type(noctalia.getenv) == "function" and noctalia.getenv("XDG_DOWNLOAD_DIR") or nil
+	local home = type(noctalia.getenv) == "function" and noctalia.getenv("HOME") or nil
+	local runtime = type(noctalia.getenv) == "function" and noctalia.getenv("XDG_RUNTIME_DIR") or nil
+	local dir = ctl.logExportDir and ctl.logExportDir(xdgDownload, home, runtime) or "/tmp"
+	local path = ctl.logExportPath and ctl.logExportPath(dir, stamp) or (dir .. "/punktfunk-host-" .. stamp .. ".log")
+	local argv = ctl.journalExportArgv and ctl.journalExportArgv()
+		or { "journalctl", "--user", "-u", "punktfunk-host.service", "--no-pager", "-n", "5000", "-o", "short-iso" }
+	runArgv(argv, function(output, err)
+		if err and (output == nil or output == "") then
+			snap.lastError = err.message or "Could not read host logs from the journal."
+			publish()
+			return
+		end
+		local body = output or ""
+		if body == "" then
+			body = "(no journal entries)\n"
+		end
+		local header = ctl.logExportHeader and ctl.logExportHeader(stamp, ctl.HOST_JOURNAL_UNIT)
+			or ("# Punktfunk host journal\n# exported " .. stamp .. "\n\n")
+		if type(noctalia.writeFile) == "function" then
+			noctalia.writeFile(path, header .. body)
+		end
+		snap.lastError = ""
+		publish()
+		local folder = ctl.parentDir and ctl.parentDir(path) or dir
+		if folder and type(noctalia.runAsync) == "function" then
+			noctalia.runAsync(ctl.xdgOpenArgv(folder))
+		end
+		if type(noctalia.notify) == "function" then
+			noctalia.notify("Punktfunk", "Host logs saved to " .. path)
+		end
+	end)
+end
+
 local function handleRequest(req)
 	local op = req.op
 	if op == "refresh" then
@@ -701,6 +767,8 @@ local function handleRequest(req)
 		runJson({ "stats", "record", "stop" }, function()
 			refreshStats()
 		end)
+	elseif op == "export-logs" then
+		exportLogs()
 	elseif op == "host-start" then
 		setHostEnabled(true)
 	elseif op == "host-stop" then

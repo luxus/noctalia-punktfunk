@@ -50,7 +50,16 @@ if model == nil then
 			return "—"
 		end,
 		policyAllowHint = function()
-			return "Gilt ab der nächsten Sitzung. Der Host erlaubt nur; der Client wählt."
+			return "Takes effect next session. The host only allows; the client chooses."
+		end,
+		captureRecording = function(s)
+			return type(s) == "table" and s.captureArmed == true
+		end,
+		showEncodeUi = function(s)
+			return type(s) == "table" and s.captureArmed == true
+		end,
+		recordingLabel = function()
+			return "Recording performance…"
 		end,
 		codecText = function()
 			return "—"
@@ -313,12 +322,67 @@ local function sparkBlock(label, unit, digits, pts)
 	return ui.column({ gap = 4, key = "spark-" .. label }, children)
 end
 
+local function recordingBanner()
+	return ui.row({
+		key = "recording",
+		gap = 8,
+		align = "center",
+		padding = 10,
+		fill = "error/0.16",
+		border = "error",
+		borderWidth = 1,
+		radius = 8,
+	}, {
+		ui.label({
+			text = model.recordingLabel and model.recordingLabel() or "Recording performance…",
+			fontWeight = "bold",
+			flexGrow = 1,
+		}),
+		ui.button({
+			text = "Stop",
+			variant = "destructive",
+			controlSize = "sm",
+			onClick = function()
+				request("capture-stop")
+			end,
+		}),
+	})
+end
+
+local function logExportRow()
+	return ui.row({
+		key = "log-export",
+		gap = 8,
+		align = "center",
+	}, {
+		ui.column({ flexGrow = 1, gap = 2 }, {
+			ui.label({ text = "Host logs", fontWeight = "medium" }),
+			ui.label({
+				text = "Save the local journal and open the folder.",
+				fontSize = 12,
+				color = "on_surface_variant",
+			}),
+		}),
+		ui.button({
+			text = "Download",
+			variant = "secondary",
+			controlSize = "sm",
+			onClick = function()
+				request("export-logs")
+			end,
+		}),
+	})
+end
+
 local function overviewTab()
 	local live = model.sessionLive(snap.state, snap.sessions, snap.games)
 	local facts = model.sessionFacts(snap)
 	local actions = model.sessionActions(live, type(snap.games) == "table" and #snap.games > 0)
 	local pillars = model.statsPillars(snap)
 	local children = factGrid(facts)
+	if model.captureRecording and model.captureRecording(snap) then
+		table.insert(children, 1, recordingBanner())
+	end
 	if live and type(snap.games) == "table" and #snap.games == 0 then
 		table.insert(children, ui.label({
 			text = "No game was launched through Punktfunk — this is the desktop.",
@@ -340,16 +404,21 @@ local function overviewTab()
 			}),
 		}))
 	end
+	local actionButtons = {}
 	for _, action in ipairs(actions) do
 		local op = action.id == "end" and "end-game" or "stop-session"
-		table.insert(children, ui.button({
+		table.insert(actionButtons, ui.button({
 			key = "action-" .. action.id,
 			text = action.label,
 			variant = "destructive",
+			controlSize = "sm",
 			onClick = function()
 				request(op)
 			end,
 		}))
+	end
+	if #actionButtons > 0 then
+		table.insert(children, ui.row({ gap = 8, align = "center", key = "session-actions" }, actionButtons))
 	end
 	local pillarsNode = pillarsRow(pillars)
 	if pillarsNode then
@@ -680,9 +749,9 @@ local function devicesDisplayTab()
 			modeCard("mirror", "This screen", "The primary monitor on this box"),
 		}),
 		ui.column({ gap = 6, key = "allow-policy" }, {
-			ui.label({ text = "Erlaubt", fontWeight = "medium" }),
+			ui.label({ text = "Allowed", fontWeight = "medium" }),
 			ui.label({
-				text = "Host-Policy für die nächste Sitzung — nicht der laufende Stream.",
+				text = "Host policy for the next session — not the live stream.",
 				fontSize = 12,
 				color = "on_surface_variant",
 			}),
@@ -692,15 +761,15 @@ local function devicesDisplayTab()
 				"hdr-sdr",
 				snap.hdrAllowed == false,
 				"SDR",
-				"8-bit · erzwingt SDR",
+				"8-bit · forces SDR",
 				"hdr-allowed",
 				false
 			),
 			allowCard(
 				"hdr-allow",
 				snap.hdrAllowed ~= false,
-				"HDR erlaubt",
-				"10-bit / HDR, wenn der Client es wählt",
+				"HDR allowed",
+				"10-bit / HDR if the client chooses it",
 				"hdr-allowed",
 				true
 			),
@@ -710,22 +779,22 @@ local function devicesDisplayTab()
 				"chroma-420",
 				snap.chroma444Allowed == false,
 				"4:2:0",
-				"Erzwingt 4:2:0",
+				"Forces 4:2:0",
 				"chroma-allowed",
 				false
 			),
 			allowCard(
 				"chroma-444",
 				snap.chroma444Allowed ~= false,
-				"4:4:4 erlaubt",
-				"Volles Chroma, wenn der Client es wählt",
+				"4:4:4 allowed",
+				"Full chroma if the client chooses it",
 				"chroma-allowed",
 				true
 			),
 		}),
 		ui.label({
 			text = model.policyAllowHint and model.policyAllowHint()
-				or "Gilt ab der nächsten Sitzung. Der Host erlaubt nur; der Client wählt.",
+				or "Takes effect next session. The host only allows; the client chooses.",
 			fontSize = 12,
 			color = "on_surface_variant",
 		}),
@@ -794,12 +863,16 @@ end
 
 local function statsTab()
 	local children = {}
+	if model.captureRecording and model.captureRecording(snap) then
+		table.insert(children, recordingBanner())
+	end
 	if not snap.stream then
 		local text = "Nothing is streaming, so there is nothing to measure."
 		if snap.state == "stopped" then
 			text = "The host is not running."
 		end
 		table.insert(children, ui.label({ text = text, fontSize = 12, color = "on_surface_variant" }))
+		table.insert(children, logExportRow())
 		return ui.column({ gap = 12, key = "stats" }, children)
 	end
 	table.insert(children, ui.label({
@@ -812,9 +885,9 @@ local function statsTab()
 			.. (model.codecText and model.codecText(snap.stream, snap.statsMeta) or "—"),
 	}))
 	table.insert(children, ui.label({
-		text = "HDR (verbunden) "
+		text = "HDR (connected) "
 			.. (model.liveHdrText and model.liveHdrText(snap) or "—")
-			.. " · Chroma (verbunden) "
+			.. " · Chroma (connected) "
 			.. (model.liveChromaText and model.liveChromaText(snap) or "—"),
 		fontSize = 12,
 		color = "on_surface_variant",
@@ -831,34 +904,32 @@ local function statsTab()
 		}))
 	end
 	local encoder = model.encoderText and model.encoderText(snap.statsMeta) or "—"
-	if encoder == "—" then
-		encoder = "Encoder —"
+	if encoder ~= "—" then
+		table.insert(children, ui.label({
+			text = encoder,
+			fontSize = 12,
+			color = "on_surface_variant",
+		}))
 	end
-	table.insert(children, ui.label({
-		text = encoder,
-		fontSize = 12,
-		color = "on_surface_variant",
-	}))
 	table.insert(children, ui.separator({}))
 	local captureLabel = "FRAME TIMINGS"
 	if snap.captureArmed then
 		captureLabel = "FRAME TIMINGS · " .. tostring(snap.captureSamples) .. " samples"
 	end
-	table.insert(children, ui.row({ align = "center", gap = 8 }, {
+	local timingRow = {
 		ui.label({ text = captureLabel, fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
-		ui.button({
-			text = snap.captureArmed and "Stop capture" or "Record timings",
-			variant = snap.captureArmed and "destructive" or "secondary",
+	}
+	if not snap.captureArmed then
+		table.insert(timingRow, ui.button({
+			text = "Record timings",
+			variant = "secondary",
 			controlSize = "sm",
 			onClick = function()
-				if snap.captureArmed then
-					request("capture-stop")
-				else
-					request("capture-start")
-				end
+				request("capture-start")
 			end,
-		}),
-	}))
+		}))
+	end
+	table.insert(children, ui.row({ align = "center", gap = 8, key = "frame-timings" }, timingRow))
 	if not snap.captureArmed then
 		table.insert(children, ui.label({
 			text = "Per-frame drops and stage timings are only sampled while a capture is recording. Stopping saves it; the web console graphs the saved ones.",
@@ -869,6 +940,7 @@ local function statsTab()
 	for _, series in ipairs(model.chartSeries(snap.captureArmed)) do
 		table.insert(children, sparkBlock(series.label, series.unit, series.digits, model.sparkPoints(snap.history, series.key)))
 	end
+	table.insert(children, logExportRow())
 	return ui.column({ gap = 12, key = "stats" }, children)
 end
 
