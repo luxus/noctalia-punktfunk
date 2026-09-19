@@ -89,8 +89,10 @@ class FixtureTests(unittest.TestCase):
         self.assertIn("punktfunk-logo.svg", parity)
         self.assertIn("PUNKTFUNK_10BIT", parity)
         self.assertIn("PUNKTFUNK_444", parity)
-        self.assertIn("erlaubt", parity.lower())
-        self.assertIn("verbunden", parity.lower())
+        self.assertIn("4:4:4 **allowed**", parity)
+        self.assertIn("connected", parity.lower())
+        self.assertIn("journalctl", parity)
+        self.assertIn("ctl logs", parity)
         self.assertIn("title+body only", parity)
         self.assertIn("no actions", parity.lower())
 
@@ -106,6 +108,25 @@ class FixtureTests(unittest.TestCase):
                     self.assertIn("function tree()", text, name)
                 else:
                     self.assertIn("function %s(" % function, text, "%s %s" % (name, function))
+
+    def test_ui_copy_is_english(self):
+        panel = (PLUGIN / "panel.luau").read_text()
+        model = (PLUGIN / "model.luau").read_text()
+        widget = (PLUGIN / "widget.luau").read_text()
+        translations = (PLUGIN / "translations" / "en.json").read_text()
+        for name, text in (
+            ("panel.luau", panel),
+            ("model.luau", model),
+            ("widget.luau", widget),
+            ("en.json", translations),
+        ):
+            for needle in ("verbunden", "erlaubt", "trennen", "Erlaubt"):
+                self.assertNotIn(needle, text, name)
+            self.assertNotIn('return "ja"', text, name)
+            self.assertNotIn('return "nein"', text, name)
+        self.assertIn("HDR (connected)", model)
+        self.assertIn("HDR allowed", panel)
+        self.assertIn("Recording performance", panel)
 
     def test_bar_and_panel_use_punktfunk_logo(self):
         widget = (PLUGIN / "widget.luau").read_text()

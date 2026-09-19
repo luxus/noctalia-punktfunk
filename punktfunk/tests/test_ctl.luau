@@ -109,6 +109,19 @@ check("rename argv", join(ctl.renameArgv("abc", "Couch")) == "punktfunk-host ctl
 check("display release argv", join(ctl.displayReleaseArgv()) == "punktfunk-host ctl display release --json")
 check("display release slot", join(ctl.displayReleaseArgv("2")) == "punktfunk-host ctl display release 2 --json")
 check("host settle ms", ctl.HOST_SETTLE_MS == 1500)
+check(
+	"journal export argv",
+	join(ctl.journalExportArgv())
+		== "journalctl --user -u punktfunk-host.service --no-pager -n 5000 -o short-iso"
+)
+check("log export dir download", ctl.logExportDir("/home/lea/Downloads", "/home/lea", "/run/user/1000") == "/home/lea/Downloads")
+check("log export dir home", ctl.logExportDir("", "/home/lea", "/run/user/1000") == "/home/lea/Downloads")
+check("log export dir tmp", ctl.logExportDir("", "", "") == "/tmp")
+check("log export path", ctl.logExportPath("/tmp", "20260919-131200") == "/tmp/punktfunk-host-20260919-131200.log")
+check("log export sanitizes stamp", ctl.logExportFilename("2026/09/19 13:12:00") == "punktfunk-host-20260919131200.log")
+check("parent dir", ctl.parentDir("/tmp/punktfunk-host-log.log") == "/tmp")
+check("log header unit", ctl.logExportHeader("stamp"):find("punktfunk-host.service", 1, true) ~= nil)
+check("log header no token", ctl.logExportHeader("stamp"):find("no management token", 1, true) ~= nil)
 
 local decode = function(line)
 	if line:find("resync", 1, true) then

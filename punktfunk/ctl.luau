@@ -344,6 +344,84 @@ function ctl.xdgOpenArgv(url)
 	return { "xdg-open", url }
 end
 
+-- Host ctl has no logs/journal/export verb (verified against punktfunk-host
+-- ctl usage). Local journalctl on this machine is the safe fallback: no
+-- HTTPS, no management token. See docs/parity.md Follow-ups.
+ctl.HOST_JOURNAL_UNIT = "punktfunk-host.service"
+ctl.JOURNAL_EXPORT_LINES = 5000
+
+local function nonemptyPath(value)
+	if type(value) ~= "string" then
+		return false
+	end
+	local trimmed = string.gsub(value, "^%s+", "")
+	trimmed = string.gsub(trimmed, "%s+$", "")
+	return trimmed ~= ""
+end
+
+function ctl.journalExportArgv()
+	return {
+		"journalctl",
+		"--user",
+		"-u",
+		ctl.HOST_JOURNAL_UNIT,
+		"--no-pager",
+		"-n",
+		tostring(ctl.JOURNAL_EXPORT_LINES),
+		"-o",
+		"short-iso",
+	}
+end
+
+function ctl.logExportDir(xdgDownload, home, runtimeDir)
+	if nonemptyPath(xdgDownload) then
+		return string.gsub(xdgDownload, "/+$", "")
+	end
+	if nonemptyPath(home) then
+		return string.gsub(home, "/+$", "") .. "/Downloads"
+	end
+	if nonemptyPath(runtimeDir) then
+		return string.gsub(runtimeDir, "/+$", "")
+	end
+	return "/tmp"
+end
+
+function ctl.logExportFilename(stamp)
+	local s = tostring(stamp or "")
+	s = string.gsub(s, "[^%w%-_]", "")
+	if s == "" then
+		s = "log"
+	end
+	return "punktfunk-host-" .. s .. ".log"
+end
+
+function ctl.logExportPath(dir, stamp)
+	local folder = dir
+	if not nonemptyPath(folder) then
+		folder = "/tmp"
+	end
+	folder = string.gsub(folder, "/+$", "")
+	return folder .. "/" .. ctl.logExportFilename(stamp)
+end
+
+function ctl.parentDir(path)
+	if type(path) ~= "string" or path == "" then
+		return nil
+	end
+	local trimmed = string.gsub(path, "/+$", "")
+	return string.match(trimmed, "^(.*)/[^/]+$")
+end
+
+function ctl.logExportHeader(stamp, unit)
+	local when = tostring(stamp or "")
+	local name = tostring(unit or ctl.HOST_JOURNAL_UNIT)
+	return "# Punktfunk host journal ("
+		.. name
+		.. ")\n# exported "
+		.. when
+		.. "\n# Local journalctl on this machine. No ctl log verb; no management token.\n\n"
+end
+
 function ctl.shouldPollStats(panelOpen, tab, state)
 	return panelOpen == true and state == "streaming" and (tab == "overview" or tab == "stats")
 end

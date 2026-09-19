@@ -14,11 +14,11 @@ Not affiliated with Noctalia beyond using its plugin API. Darwin / macOS are out
 
 - **Bar widget** — official lens mark (`assets/punktfunk-mark.svg`, no wordmark), otherwise a cast glyph. Semantic fill/border, a primary pip while streaming, and a pending-count badge wrap the mark rather than replacing it. Optional `show_label` draws "Punktfunk" as text next to the mark. Click opens the panel (Pair tab if something is waiting). Right-click stops a live session, or opens the web console when nothing is streaming.
 - **Panel** — hero with the full lockup (`assets/punktfunk-logo.svg`, lens + wordmark) at a readable size, host start/stop (busy until the snapshot settles), and the live codec · HDR · chroma while streaming, then five tabs:
-  - *Overview* — facts (including Encode/codec and live **HDR (verbunden)** / **Chroma (verbunden)**), competing-host banner from `summary.conflicts`, stop / end-game, bitrate / frames / encode pillars, and a target sparkline.
+  - *Overview* — facts (including Codec and live **HDR (connected)** / **Chroma (connected)**), competing-host banner from `summary.conflicts`, compact stop / end-game actions, bitrate / frames pillars, and a target sparkline. Encode timings appear only while performance capture is recording, with a **Recording performance…** banner and Stop.
   - *Pair* — incoming request with Accept / Reject by pending id, the pairing PIN to verify, Moonlight PIN field, and the pairing-window toggle.
   - *Devices* — both planes; access `full` / `controller` / `view` (`ctl access`); rename (`ctl rename`); Unpair asks Confirm / Cancel (`y` / `c` while focused).
-  - *Display* — Dedicated / This screen cards; **HDR erlaubt** / **4:4:4 erlaubt** host policy (`PUNKTFUNK_10BIT` / `PUNKTFUNK_444` in `host.env`, next session; the client still picks); policy, presets, and **Release kept displays** (`ctl display release`; never an actively streaming head).
-  - *Stats* — the same pillars, encoder detail, live **HDR (verbunden)** / **Chroma (verbunden)**, and capture charts.
+  - *Display* — Dedicated / This screen cards; **HDR allowed** / **4:4:4 allowed** host policy (`PUNKTFUNK_10BIT` / `PUNKTFUNK_444` in `host.env`, next session; the client still picks); policy, presets, and **Release kept displays** (`ctl display release`; never an actively streaming head).
+  - *Stats* — the same pillars (Encode only while recording), encoder detail, live **HDR (connected)** / **Chroma (connected)**, capture charts, and **Download** for local host logs.
 - **Service** — one long-lived `punktfunk-host ctl watch` stream that drives the widget and panel. `pairing.pending` raises a Noctalia notification with the claimed name and fingerprint tail; `stream.started` / `stream.stopped` raise quiet toasts.
 
 `noctalia.notify(title, body)` and `noctalia.notifyError(title, body)` take two strings and nothing else: **no actions, no click handler, no urgency flag** (plugin_api 24). Approve / Deny therefore stay on the Pair tab, keyed by pending id. Click the bar widget to open that tab.
@@ -58,22 +58,25 @@ A Punktfunk **host** on the same machine — `punktfunk-host` on `PATH`. The plu
 | `punktfunk-host ctl display preset <id>` | Display presets |
 | `punktfunk-host ctl display release` | Tear down kept (not streaming) virtual heads |
 | `punktfunk-host ctl stats record start \| stop` | Frame-timing capture |
+| `journalctl --user -u punktfunk-host.service` | Stats-tab host log download (local file + folder). **No `ctl logs` verb** — see Follow-ups. |
 | `punktfunk-host ctl console-url` | One-shot web console ticket |
 | `systemctl --user start \| stop punktfunk-host.service` | Host toggle |
 | `punktfunk-host list-monitors` plus `~/.config/punktfunk/display-settings.json` | Dedicated vs This screen |
-| `~/.config/punktfunk/host.env` (`PUNKTFUNK_10BIT`, `PUNKTFUNK_444`) plus `systemctl --user try-restart` | Display-tab HDR / 4:4:4 **erlaubt** policy |
+| `~/.config/punktfunk/host.env` (`PUNKTFUNK_10BIT`, `PUNKTFUNK_444`) plus `systemctl --user try-restart` | Display-tab HDR / 4:4:4 **allowed** policy |
 
 Every management call is `punktfunk-host ctl`. **The plugin never speaks HTTPS, never holds the operator token, and never sees the host’s certificate.** `ctl` reads the token and certificate from the 0700 config directory in its own process, pins the certificate before sending the token, and prints JSON on stdout. Exit 4 is a certificate mismatch: something that is not your host answered on the management port, and no credential was transmitted.
 
 `service.luau` is the only spawn site. Panel and widget publish a `request` on `noctalia.state`; the service runs it.
 
-Display mode does **not** call `punktfunk-omarchy`. That helper is Omarchy/Hyprland wiring. This plugin writes the same `display-settings.json` / `host.env` contract the helper uses, then `systemctl --user try-restart punktfunk-host.service`. HDR/4:4:4 **erlaubt** gates are the same file (`PUNKTFUNK_10BIT`, `PUNKTFUNK_444`); they only allow. Live **verbunden** HDR/chroma come from `ctl status` / `ctl stats` / the stream snapshot — missing fields show `—`.
+Display mode does **not** call `punktfunk-omarchy`. That helper is Omarchy/Hyprland wiring. This plugin writes the same `display-settings.json` / `host.env` contract the helper uses, then `systemctl --user try-restart punktfunk-host.service`. HDR/4:4:4 **allowed** gates are the same file (`PUNKTFUNK_10BIT`, `PUNKTFUNK_444`); they only allow. Live **connected** HDR/chroma come from `ctl status` / `ctl stats` / the stream snapshot — missing fields show `—`.
 
 ## Follow-ups
 
-`punktfunk-host ctl` has no settings/env verb (`ctl env get|set|unset` or equivalent). Capture mode and HDR/4:4:4 **erlaubt** therefore write `~/.config/punktfunk/host.env` and `display-settings.json`, then `systemctl --user try-restart punktfunk-host.service` (plugin already does this; a hand-edit uses the same restart). Restart works; mutation is the gap.
+`punktfunk-host ctl` has no settings/env verb (`ctl env get|set|unset` or equivalent). Capture mode and HDR/4:4:4 **allowed** therefore write `~/.config/punktfunk/host.env` and `display-settings.json`, then `systemctl --user try-restart punktfunk-host.service` (plugin already does this; a hand-edit uses the same restart). Restart works; mutation is the gap.
 
 Preferred: host-managed store (console + ctl); plugin calls ctl only; **no plugin-owned `host.env` writes**. Do not invent that verb here. Upstream FR: [`docs/parity.md`](docs/parity.md) → [`luxus/punktfunk`](https://github.com/luxus/punktfunk).
+
+`punktfunk-host ctl` also has no `logs` / `journal` / export verb (usage lists status, pairing, devices, display, stats, watch, console-url). The web console streams live logs over the management HTTPS API; this plugin must not call that and must not hold the operator token. Stats **Download** therefore runs `journalctl --user -u punktfunk-host.service` on this machine, writes a file, and opens the folder with `xdg-open`.
 
 ## How it talks to the host
 

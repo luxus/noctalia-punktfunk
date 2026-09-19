@@ -207,24 +207,25 @@ local function firstPresent(tables, keys)
 	return nil
 end
 
--- Live session only (verbunden/aktiv). Missing → "—", never hide the row.
+-- Live session only (connected/active). Missing → "—", never hide the row.
+-- Host payloads may still say ja/nein; the panel always prints English yes/no.
 function model.liveHdrText(snap)
 	local value = firstPresent(model.streamSignalTables(snap), { "hdr", "is_hdr", "hdr10" })
 	if value == nil then
 		return "—"
 	end
 	if value == true or value == 1 then
-		return "ja"
+		return "yes"
 	end
 	if value == false or value == 0 then
-		return "nein"
+		return "no"
 	end
 	local lower = string.lower(tostring(value))
 	if lower == "true" or lower == "yes" or lower == "ja" or lower == "1" or lower == "hdr" then
-		return "ja"
+		return "yes"
 	end
 	if lower == "false" or lower == "no" or lower == "nein" or lower == "0" or lower == "sdr" then
-		return "nein"
+		return "no"
 	end
 	return "—"
 end
@@ -289,7 +290,19 @@ function model.heroDetail(state, stream, statsMeta, snap)
 end
 
 function model.policyAllowHint()
-	return "Gilt ab der nächsten Sitzung. Der Host erlaubt nur; der Client wählt."
+	return "Takes effect next session. The host only allows; the client chooses."
+end
+
+function model.captureRecording(snap)
+	return type(snap) == "table" and snap.captureArmed == true
+end
+
+function model.showEncodeUi(snap)
+	return model.captureRecording(snap)
+end
+
+function model.recordingLabel()
+	return "Recording performance…"
 end
 
 function model.captureModeStatus(output)
@@ -382,9 +395,9 @@ function model.sessionFacts(snap)
 			{ k = "Resolution", v = resolution },
 			{ k = "Frame rate", v = fpsText },
 			{ k = "Bitrate", v = bitrateText },
-			{ k = "Encode", v = model.codecText(live, s.statsMeta) },
-			{ k = "HDR (verbunden)", v = model.liveHdrText(s) },
-			{ k = "Chroma (verbunden)", v = model.liveChromaText(s) },
+			{ k = "Codec", v = model.codecText(live, s.statsMeta) },
+			{ k = "HDR (connected)", v = model.liveHdrText(s) },
+			{ k = "Chroma (connected)", v = model.liveChromaText(s) },
 		}
 		local encoder = model.encoderText(s.statsMeta)
 		if encoder ~= "—" then
@@ -653,11 +666,11 @@ function model.statsPillars(snap)
 	if stream.fps then
 		fpsNote = tostring(stream.fps) .. " fps mode"
 	end
-	local encodeNote = "record timings to sample"
+	local encodeNote = "recording"
 	if encode ~= nil then
 		encodeNote = "p99 ms"
 	end
-	return {
+	local out = {
 		{
 			label = "TARGET",
 			text = string.format("%.1f", target),
@@ -670,13 +683,16 @@ function model.statsPillars(snap)
 			note = fpsNote,
 			meter = model.pillarMeter(history, "fps", fps),
 		},
-		{
+	}
+	if model.showEncodeUi(s) then
+		table.insert(out, {
 			label = "ENCODE",
 			text = encodeText,
 			note = encodeNote,
 			meter = model.pillarMeter(history, "encode", encode),
-		},
-	}
+		})
+	end
+	return out
 end
 
 function model.graphValues(pts)

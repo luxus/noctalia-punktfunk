@@ -66,8 +66,11 @@ class HostBoundaryTests(unittest.TestCase):
             '"access"',
             '"rename"',
             '"release"',
+            "export-logs",
         ):
             self.assertIn(token, service)
+        self.assertIn("journalctl", service)
+        self.assertIn("journalExportArgv", (PLUGIN / "ctl.luau").read_text())
         for tab in ("overview", "pair", "devices", "display", "stats"):
             self.assertIn(tab, model)
         self.assertIn("Accept", panel)
@@ -75,15 +78,25 @@ class HostBoundaryTests(unittest.TestCase):
         self.assertIn("Unpair", panel)
         self.assertIn("Dedicated", panel)
         self.assertIn("This screen", panel)
-        self.assertIn("HDR erlaubt", panel)
-        self.assertIn("4:4:4 erlaubt", panel)
+        self.assertIn("HDR allowed", panel)
+        self.assertIn("4:4:4 allowed", panel)
         self.assertIn("hdr-allowed", panel)
         self.assertIn("chroma-allowed", panel)
-        self.assertIn("Erlaubt", panel)
-        self.assertIn("verbunden", panel)
+        self.assertIn("Allowed", panel)
+        self.assertIn("HDR (connected)", panel)
+        self.assertIn("Chroma (connected)", panel)
         self.assertIn("Stop the session", model)
-        self.assertIn("HDR (verbunden)", model)
-        self.assertIn("Chroma (verbunden)", model)
+        self.assertIn("HDR (connected)", model)
+        self.assertIn("Chroma (connected)", model)
+        self.assertIn("Recording performance", panel)
+        self.assertIn("export-logs", panel)
+        self.assertIn("controlSize = \"sm\"", panel)
+        self.assertIn("session-actions", panel)
+        self.assertNotIn("verbunden", panel)
+        self.assertNotIn("erlaubt", panel.lower())
+        self.assertNotIn("Erlaubt", panel)
+        self.assertNotIn("HDR (verbunden)", model)
+        self.assertNotIn("Chroma (verbunden)", model)
         self.assertIn("PUNKTFUNK_10BIT", (PLUGIN / "ctl.luau").read_text())
         self.assertIn("PUNKTFUNK_444", (PLUGIN / "ctl.luau").read_text())
         self.assertIn("hostEnvSet", (PLUGIN / "service.luau").read_text())
